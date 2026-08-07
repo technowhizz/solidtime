@@ -29,6 +29,31 @@ async function scrollCalendarToTime(page: Page, time: string) {
     await page.waitForTimeout(300);
 }
 
+async function waitForCalendarGrid(page: Page) {
+    await expect(page.locator('.fc')).toBeVisible({ timeout: 10000 });
+    await page.waitForSelector('.fc-timegrid-slot-lane', { timeout: 10000 });
+}
+
+async function getCalendarScrollTop(page: Page): Promise<number> {
+    return await page.evaluate(() => document.querySelector('.fc-scroller')?.scrollTop ?? -1);
+}
+
+/**
+ * The scroll position is applied once the calendar query resolves, so poll for it. The
+ * tolerance absorbs scrollbar rounding and the clock advancing a minute mid-test.
+ */
+async function expectCalendarScrollNear(page: Page, expected: number, tolerance = 40) {
+    await expect
+        .poll(async () => Math.abs((await getCalendarScrollTop(page)) - expected), {
+            timeout: 5000,
+        })
+        .toBeLessThanOrEqual(tolerance);
+}
+
+function getCalendarTitle(page: Page) {
+    return page.getByTestId('calendar-title');
+}
+
 async function getSlotHeight(page: Page): Promise<number> {
     return await page.evaluate(() => {
         const slots = document.querySelectorAll('.fc-timegrid-slot-lane');
@@ -2550,6 +2575,93 @@ test.describe('Data Loading & Navigation', () => {
         expect(info.slotCount).toBe(96);
         // Grid height should be 96 * 25px = 2400px
         expect(info.scrollHeight).toBe(2400);
+    });
+
+    test('scroll position is preserved across a page reload', async ({ page }) => {
+        await goToCalendar(page);
+        await scrollCalendarToTime(page, '20:00:00');
+
+        const before = await getCalendarScrollTop(page);
+        expect(before).toBeGreaterThan(0);
+
+        await page.reload();
+        await waitForCalendarGrid(page);
+
+        await expectCalendarScrollNear(page, before);
+    });
+
+    test('scroll position is not restored when navigating in from the sidebar', async ({
+        page,
+    }) => {
+        await goToCalendar(page);
+        // Captured before any manual scrolling, so this is the "scroll to now" position
+        const defaultTop = await getCalendarScrollTop(page);
+
+        await scrollCalendarToTime(page, defaultTop > 1200 ? '00:00:00' : '23:00:00');
+        expect(Math.abs((await getCalendarScrollTop(page)) - defaultTop)).toBeGreaterThan(200);
+
+        // Inertia visits, not document loads
+        await page.getByRole('link', { name: 'Dashboard' }).click();
+        await expect(page).toHaveURL(/\/dashboard/);
+        await page.getByRole('link', { name: 'Calendar' }).click();
+        await waitForCalendarGrid(page);
+
+        await expectCalendarScrollNear(page, defaultTop);
+    });
+
+    test('scroll position is not restored when the document loaded on a different page', async ({
+        page,
+    }) => {
+        await goToCalendar(page);
+        const defaultTop = await getCalendarScrollTop(page);
+
+        await scrollCalendarToTime(page, defaultTop > 1200 ? '00:00:00' : '23:00:00');
+
+        // A full document load elsewhere, then an in-app visit back to the calendar
+        await page.goto(PLAYWRIGHT_BASE_URL + '/dashboard');
+        await page.getByRole('link', { name: 'Calendar' }).click();
+        await waitForCalendarGrid(page);
+
+        await expectCalendarScrollNear(page, defaultTop);
+    });
+
+    test('a remembered position outside the visible hours falls back to the current time', async ({
+        page,
+    }) => {
+        await page.addInitScript(() => {
+            localStorage.setItem(
+                'solidtime:calendar-settings',
+                JSON.stringify({ snapMinutes: 15, startHour: 8, endHour: 24, slotMinutes: 15 })
+            );
+        });
+
+        await goToCalendar(page);
+        const defaultTop = await getCalendarScrollTop(page);
+
+        // 01:00 sits before the 08:00 start hour, so it is no longer a meaningful position
+        await page.evaluate(() =>
+            sessionStorage.setItem('solidtime:calendar-scroll-minutes', '60')
+        );
+        await page.reload();
+        await waitForCalendarGrid(page);
+
+        await expectCalendarScrollNear(page, defaultTop);
+    });
+
+    test('the displayed week and view mode are not restored across a reload', async ({ page }) => {
+        await goToCalendar(page);
+        const currentWeekTitle = await getCalendarTitle(page).textContent();
+
+        await page.getByRole('button', { name: 'Next' }).click();
+        await page.getByRole('tab', { name: 'day', exact: true }).click();
+        await expect(page.locator('.fc-col-header-cell')).toHaveCount(1);
+
+        await page.reload();
+        await waitForCalendarGrid(page);
+
+        // Only the scroll position is remembered — the date and view mode reset
+        await expect(page.locator('.fc-col-header-cell')).toHaveCount(7);
+        await expect(getCalendarTitle(page)).toHaveText(currentWeekTitle ?? '');
     });
 });
 

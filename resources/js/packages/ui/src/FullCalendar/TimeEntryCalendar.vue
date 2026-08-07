@@ -11,6 +11,7 @@ import {
     onUnmounted,
 } from 'vue';
 import { useLocalStorage } from '@vueuse/core';
+import { useCalendarScrollRestore } from './useCalendarScrollRestore';
 import { useCssVariable } from '../utils/useCssVariable';
 import { useBreaksEnabled } from '../utils/useBreaksEnabled';
 import { getLocalizedDayJs, getLocalizedDayJsFromMinutes } from '../utils/time';
@@ -134,6 +135,11 @@ const {
     getDayFromClientX,
     clientYToGridPixels,
 } = useCalendarGrid(calendarSettings, organization, scrollerRef, rootRef);
+
+const { desiredScrollMinutes } = useCalendarScrollRestore({
+    scrollerRef,
+    pixelsToMinutesFromMidnight,
+});
 
 const {
     activeView,
@@ -331,21 +337,27 @@ function guardedSlotPointerDown(e: PointerEvent) {
     onSlotPointerDown(e);
 }
 
+function scrollToMinutesNow(minutes: number) {
+    if (!scrollerRef.value) return;
+    const startMin = calendarSettings.value.startHour * 60;
+    scrollerRef.value.scrollTop = minutesToPixels(Math.max(0, minutes - startMin));
+}
+
+function scrollToCurrentTimeNow() {
+    const now = getLocalizedDayJs();
+    const oneHourBefore = now.subtract(1, 'hour');
+
+    const targetMinutes = now.isSame(oneHourBefore, 'day')
+        ? oneHourBefore.hour() * 60 + oneHourBefore.minute()
+        : now.hour() * 60 + now.minute();
+
+    // Navigating deliberately drops whatever position was remembered
+    desiredScrollMinutes.value = targetMinutes;
+    scrollToMinutesNow(targetMinutes);
+}
+
 const scrollToCurrentTime = () => {
-    nextTick(() => {
-        if (!scrollerRef.value) return;
-        const now = getLocalizedDayJs();
-        const oneHourBefore = now.subtract(1, 'hour');
-        const s = calendarSettings.value;
-        const startMin = s.startHour * 60;
-
-        const targetMinutes = now.isSame(oneHourBefore, 'day')
-            ? oneHourBefore.hour() * 60 + oneHourBefore.minute()
-            : now.hour() * 60 + now.minute();
-
-        const scrollTop = minutesToPixels(Math.max(0, targetMinutes - startMin));
-        scrollerRef.value.scrollTop = scrollTop;
-    });
+    nextTick(scrollToCurrentTimeNow);
 };
 
 watch(
@@ -365,20 +377,30 @@ watch(
     { deep: true }
 );
 
-let hasScrolledOnLoad = false;
-
+// Positions the grid every time `.fc-scroller` is created. `v-if="!loading"` destroys and
+// re-creates it while the first query resolves, so a one-shot guard is not enough — it would
+// leave a later scroller sitting at the top of the day.
 watch(
-    () => props.loading,
-    (loading) => {
-        if (!loading && !hasScrolledOnLoad) {
-            hasScrolledOnLoad = true;
-            scrollToCurrentTime();
+    scrollerRef,
+    (scroller) => {
+        if (!scroller) return;
+
+        const target = desiredScrollMinutes.value;
+        const { startHour, endHour } = calendarSettings.value;
+
+        // A remembered position outside the visible window is meaningless — e.g. saved at
+        // 22:00, then the end hour lowered to 18:00 in another tab. Falling back to the
+        // current time beats parking the user at the very bottom of the grid.
+        if (target !== null && target >= startHour * 60 && target <= endHour * 60) {
+            scrollToMinutesNow(target);
+        } else {
+            scrollToCurrentTimeNow();
         }
-    }
+    },
+    { flush: 'post' }
 );
 
 onMounted(() => {
-    scrollToCurrentTime();
     emitDatesChange();
     currentTimeInterval = setInterval(() => {
         currentTime.value = getLocalizedDayJs();
