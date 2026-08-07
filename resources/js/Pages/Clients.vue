@@ -23,6 +23,7 @@ const createClient = ref(false);
 interface ClientTableState {
     sortColumn: SortColumn;
     sortDirection: SortDirection;
+    perPage: number;
 }
 
 const tableState = useStorage<ClientTableState>(
@@ -30,6 +31,7 @@ const tableState = useStorage<ClientTableState>(
     {
         sortColumn: 'name',
         sortDirection: 'asc',
+        perPage: 15,
     },
     undefined,
     { mergeDefaults: true }
@@ -67,6 +69,7 @@ const shownClients = computed(() => {
             <ClientCreateModal v-model:show="createClient"></ClientCreateModal>
         </MainContainer>
         <ClientTable
+            v-model:per-page="tableState.perPage"
             :clients="shownClients"
             :sort-column="tableState.sortColumn"
             :sort-direction="tableState.sortDirection"

@@ -34,6 +34,7 @@ const { organization } = useOrganizationQuery(getCurrentOrganizationId()!);
 interface ProjectTableState {
     sortColumn: SortColumn;
     sortDirection: SortDirection;
+    perPage: number;
     filters: {
         clientIds: string[];
         status: 'active' | 'archived' | 'all';
@@ -46,6 +47,7 @@ const tableState = useStorage<ProjectTableState>(
     {
         sortColumn: 'name',
         sortDirection: 'asc',
+        perPage: 15,
         filters: {
             clientIds: [],
             status: 'all',
@@ -193,6 +195,7 @@ const showBillableRate = computed(() => {
         </MainContainer>
 
         <ProjectTable
+            v-model:per-page="tableState.perPage"
             :show-billable-rate="showBillableRate"
             :projects="filteredProjects"
             :sort-column="tableState.sortColumn"

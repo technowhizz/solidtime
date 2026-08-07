@@ -148,16 +148,16 @@ const sortedProjects = computed(() => {
 });
 
 // Client-side pagination: the full list is in memory, only one page is mounted at a time.
-const PAGE_SIZE = 15;
+const perPage = defineModel<number>('perPage', { default: 15 });
 const currentPage = ref(1);
 
-watch([() => props.sortColumn, () => props.sortDirection, () => props.projects], () => {
+watch([() => props.sortColumn, () => props.sortDirection, () => props.projects, perPage], () => {
     currentPage.value = 1;
 });
 
 const paginatedProjects = computed(() => {
-    const start = (currentPage.value - 1) * PAGE_SIZE;
-    return sortedProjects.value.slice(start, start + PAGE_SIZE);
+    const start = (currentPage.value - 1) * perPage.value;
+    return sortedProjects.value.slice(start, start + perPage.value);
 });
 
 const showCreateProjectModal = ref(false);
@@ -226,6 +226,7 @@ const gridTemplate = computed(() => {
     </div>
     <Pagination
         v-model:page="currentPage"
+        v-model:items-per-page="perPage"
         :total="sortedProjects.length"
-        :items-per-page="PAGE_SIZE"></Pagination>
+        item-label="Projects"></Pagination>
 </template>

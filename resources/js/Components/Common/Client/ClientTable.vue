@@ -106,16 +106,16 @@ const sortedClients = computed(() => {
 });
 
 // Client-side pagination: the full list is in memory, only one page is mounted at a time.
-const PAGE_SIZE = 15;
+const perPage = defineModel<number>('perPage', { default: 15 });
 const currentPage = ref(1);
 
-watch([() => props.sortColumn, () => props.sortDirection, () => props.clients], () => {
+watch([() => props.sortColumn, () => props.sortDirection, () => props.clients, perPage], () => {
     currentPage.value = 1;
 });
 
 const paginatedClients = computed(() => {
-    const start = (currentPage.value - 1) * PAGE_SIZE;
-    return sortedClients.value.slice(start, start + PAGE_SIZE);
+    const start = (currentPage.value - 1) * perPage.value;
+    return sortedClients.value.slice(start, start + perPage.value);
 });
 </script>
 
@@ -151,6 +151,7 @@ const paginatedClients = computed(() => {
     </div>
     <Pagination
         v-model:page="currentPage"
+        v-model:items-per-page="perPage"
         :total="sortedClients.length"
-        :items-per-page="PAGE_SIZE"></Pagination>
+        item-label="Clients"></Pagination>
 </template>

@@ -821,4 +821,93 @@ test.describe('Reporting Detailed Pagination', () => {
         });
         await expect(page.getByRole('button', { name: 'Next Page' })).toHaveCount(0);
     });
+
+    test('test that changing the entries per page loads every entry onto one page', async ({
+        page,
+        ctx,
+    }) => {
+        // 17 entries at the default page size of 15 → 2 pages. Raising the page size to 50 has
+        // to collapse that back to a single page.
+        const seed = Math.floor(Math.random() * 100000);
+        const projectName = `PerPageProj ${seed}`;
+        const project = await createProjectViaApi(ctx, { name: projectName });
+        const descriptions = Array.from(
+            { length: 17 },
+            (_, i) => `PerPageEntry ${String(i).padStart(2, '0')} ${seed}`
+        );
+        await Promise.all(
+            descriptions.map((description) =>
+                createTimeEntryViaApi(ctx, {
+                    description,
+                    duration: '30min',
+                    projectId: project.id,
+                })
+            )
+        );
+
+        await goToReportingDetailed(page);
+        // Every entry shares a start timestamp, so which ones land on page 1 is not
+        // deterministic — assert on the range label rather than a specific entry.
+        await expect(page.getByTestId('pagination_range')).toHaveText('Entries 1–15 of 17', {
+            timeout: 10000,
+        });
+
+        // Raise the page size to 50.
+        await page.getByTestId('pagination_per_page').click();
+        await Promise.all([
+            page.getByRole('option', { name: '50', exact: true }).click(),
+            waitForDetailedReportingUpdate(page),
+        ]);
+
+        // Every entry now fits on one page, so the nav disappears and the label covers all 17.
+        await expect(page.getByTestId('pagination_range')).toHaveText('Entries 1–17 of 17');
+        await expect(page.getByRole('button', { name: 'Next Page' })).toHaveCount(0);
+        for (const description of descriptions) {
+            await expect(page.getByText(description).first()).toBeVisible();
+        }
+
+        // The choice is persisted per browser, so it survives a reload.
+        await Promise.all([page.reload(), waitForDetailedReportingUpdate(page)]);
+        await expect(page.getByTestId('pagination_range')).toHaveText('Entries 1–17 of 17');
+        await expect(page.getByTestId('pagination_per_page')).toHaveText('50');
+    });
+
+    test('test that the entries per page selector returns to page 1', async ({ page, ctx }) => {
+        const seed = Math.floor(Math.random() * 100000);
+        const projectName = `PerPageResetProj ${seed}`;
+        const project = await createProjectViaApi(ctx, { name: projectName });
+        const descriptions = Array.from(
+            { length: 17 },
+            (_, i) => `PerPageResetEntry ${String(i).padStart(2, '0')} ${seed}`
+        );
+        await Promise.all(
+            descriptions.map((description) =>
+                createTimeEntryViaApi(ctx, {
+                    description,
+                    duration: '30min',
+                    projectId: project.id,
+                })
+            )
+        );
+
+        await goToReportingDetailed(page);
+        await expect(page.getByTestId('pagination_range')).toHaveText('Entries 1–15 of 17', {
+            timeout: 10000,
+        });
+
+        // Move to page 2, then shrink the page size — offset has to reset rather than run off
+        // the end of the result set.
+        await Promise.all([
+            page.getByRole('button', { name: 'Next Page' }).click(),
+            waitForDetailedReportingUpdate(page),
+        ]);
+        await expect(page.getByTestId('pagination_range')).toHaveText('Entries 16–17 of 17');
+
+        await page.getByTestId('pagination_per_page').click();
+        await Promise.all([
+            page.getByRole('option', { name: '25', exact: true }).click(),
+            waitForDetailedReportingUpdate(page),
+        ]);
+        await expect(page.getByTestId('pagination_range')).toHaveText('Entries 1–17 of 17');
+    });
 });

@@ -489,4 +489,38 @@ test.describe('Clients Pagination', () => {
         await expect(page.getByText(prefix + '15')).toBeVisible();
         await expect(page.getByText(prefix + '00')).not.toBeVisible();
     });
+
+    test('test that the clients per page selector persists across reloads', async ({
+        page,
+        ctx,
+    }) => {
+        const seed = Math.floor(Math.random() * 100000);
+        const prefix = `PerPageClient ${seed} `;
+        await Promise.all(
+            Array.from({ length: 17 }, (_, i) =>
+                createClientViaApi(ctx, { name: prefix + String(i).padStart(2, '0') })
+            )
+        );
+
+        await goToClientsOverview(page);
+        await clearClientTableState(page);
+        await page.reload();
+
+        await expect(page.getByText(prefix + '00')).toBeVisible({ timeout: 10000 });
+        await expect(page.getByTestId('pagination_range')).toHaveText('Clients 1–15 of 17');
+
+        // Raise the page size — all 17 clients fit on one page and the nav disappears.
+        await page.getByTestId('pagination_per_page').click();
+        await page.getByRole('option', { name: '25', exact: true }).click();
+
+        await expect(page.getByTestId('pagination_range')).toHaveText('Clients 1–17 of 17');
+        await expect(page.getByRole('button', { name: 'Next Page' })).toHaveCount(0);
+        await expect(page.getByText(prefix + '16')).toBeVisible();
+
+        // The page size lives in the localStorage table state, so it survives a reload.
+        await page.reload();
+        await expect(page.getByText(prefix + '00')).toBeVisible({ timeout: 10000 });
+        await expect(page.getByTestId('pagination_per_page')).toHaveText('25');
+        await expect(page.getByTestId('pagination_range')).toHaveText('Clients 1–17 of 17');
+    });
 });

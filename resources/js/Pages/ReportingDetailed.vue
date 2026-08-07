@@ -30,7 +30,7 @@ import {
 } from '@/packages/api/src';
 import { useTagsQuery } from '@/utils/useTagsQuery';
 import { useTagsStore } from '@/utils/useTags';
-import { useSessionStorage } from '@vueuse/core';
+import { useSessionStorage, useStorage } from '@vueuse/core';
 import TimeEntryRow from '@/packages/ui/src/TimeEntry/TimeEntryRow.vue';
 import { useCurrentTimeEntryStore } from '@/utils/useCurrentTimeEntry';
 import { useProjectsQuery } from '@/utils/useProjectsQuery';
@@ -81,7 +81,18 @@ const roundingMinutes = ref<number>(15);
 
 const { members } = useMembersQuery();
 const { organization } = useOrganizationQuery(getCurrentOrganizationId()!);
-const pageLimit = 15;
+interface ReportingDetailedTableState {
+    perPage: number;
+}
+
+const tableState = useStorage<ReportingDetailedTableState>(
+    'reporting-detailed-table-state',
+    {
+        perPage: 15,
+    },
+    undefined,
+    { mergeDefaults: true }
+);
 
 // Watch rounding enabled state to trigger updates
 watch(roundingEnabled, () => {
@@ -89,13 +100,22 @@ watch(roundingEnabled, () => {
 });
 const currentPage = ref(1);
 
+// Without this, growing the page size while on a high page would request an offset far beyond
+// the result set.
+watch(
+    () => tableState.value.perPage,
+    () => {
+        currentPage.value = 1;
+    }
+);
+
 function getFilterAttributes() {
     const defaultParams = {
         start: getLocalizedDayJs(startDate.value).startOf('day').utc().format(),
         end: getLocalizedDayJs(endDate.value).endOf('day').utc().format(),
         active: 'false' as 'true' | 'false',
-        limit: pageLimit,
-        offset: currentPage.value * pageLimit - pageLimit,
+        limit: tableState.value.perPage,
+        offset: currentPage.value * tableState.value.perPage - tableState.value.perPage,
     };
     const params = {
         ...defaultParams,
@@ -138,8 +158,8 @@ const { tags } = useTagsQuery();
 const filterParams = computed(() => getFilterAttributes());
 const { data: timeEntryResponse } = useTimeEntriesReportQuery(filterParams);
 
-const totalPages = computed(() => {
-    return timeEntryResponse?.value?.meta?.total ?? 1;
+const totalEntries = computed(() => {
+    return timeEntryResponse?.value?.meta?.total ?? 0;
 });
 
 async function deleteTimeEntries(timeEntries: TimeEntry[]) {
@@ -404,6 +424,9 @@ async function downloadExport(format: ExportFormat) {
             </div>
         </div>
 
-        <Pagination v-model:page="currentPage" :total="totalPages" :items-per-page="pageLimit" />
+        <Pagination
+            v-model:page="currentPage"
+            v-model:items-per-page="tableState.perPage"
+            :total="totalEntries" />
     </AppLayout>
 </template>
