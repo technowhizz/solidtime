@@ -5,7 +5,7 @@ import {
     getEmailChangeVerificationUrl,
     waitForEmailCount,
 } from './utils/mailpit';
-import { getCurrentUserViaApi } from './utils/api';
+import { getCurrentUserViaApi, updateUserProfileViaApi } from './utils/api';
 import { registerUser } from './utils/members';
 import type { Page } from '@playwright/test';
 import path from 'path';
@@ -791,5 +791,24 @@ test.describe('Google Calendar card', () => {
                     request.method() === 'DELETE'
             ),
         ]);
+    });
+});
+
+test.describe('timezone mismatch modal', () => {
+    // The page fixture registers the user with whatever timezone the browser reports,
+    // so pin it here and move the profile off it to create the mismatch.
+    test.use({ timezoneId: 'Europe/Berlin' });
+
+    test('updating from the mismatch modal saves the browser timezone', async ({ page, ctx }) => {
+        await updateUserProfileViaApi(ctx, { timezone: 'America/New_York' });
+
+        await page.goto(PLAYWRIGHT_BASE_URL + '/dashboard');
+        await expect(page.getByText('Timezone mismatch detected')).toBeVisible();
+        await page.getByRole('button', { name: 'Update timezone' }).click();
+
+        await expect
+            .poll(async () => (await getCurrentUserViaApi(ctx)).timezone)
+            .toBe('Europe/Berlin');
+        await expect(page.getByText('Timezone mismatch detected')).toBeHidden();
     });
 });
