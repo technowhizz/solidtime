@@ -4751,6 +4751,275 @@ class TimeEntryEndpointTest extends ApiEndpointTestAbstract
         $response->assertJsonPath('data.seconds', 200);
     }
 
+    public function test_index_endpoint_with_description_filter_returns_only_matching_entries(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission([
+            'time-entries:view:all',
+        ]);
+        $matchingTimeEntry = TimeEntry::factory()
+            ->forOrganization($data->organization)
+            ->forMember($data->member)
+            ->create([
+                'start' => Carbon::now()->subHour(),
+                'description' => 'Daily standup',
+            ]);
+        $nonMatchingTimeEntry = TimeEntry::factory()
+            ->forOrganization($data->organization)
+            ->forMember($data->member)
+            ->create([
+                'start' => Carbon::now()->subHour(),
+                'description' => 'Invoice review',
+            ]);
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->getJson(route('api.v1.time-entries.index', [
+            $data->organization->getKey(),
+            'description' => 'standup',
+            'start' => Carbon::now()->subDay()->toIso8601ZuluString(),
+            'end' => Carbon::now()->addDay()->toIso8601ZuluString(),
+        ]));
+
+        // Assert
+        $response->assertValid();
+        $this->assertResponseCode($response, 200);
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.id', $matchingTimeEntry->getKey());
+        $returnedIds = collect($response->json('data'))->pluck('id');
+        $this->assertFalse($returnedIds->contains($nonMatchingTimeEntry->getKey()));
+    }
+
+    public function test_index_endpoint_with_description_filter_is_case_insensitive_and_matches_mid_word(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission([
+            'time-entries:view:all',
+        ]);
+        $timeEntryStandup = TimeEntry::factory()
+            ->forOrganization($data->organization)
+            ->forMember($data->member)
+            ->create([
+                'start' => Carbon::now()->subHour(),
+                'description' => 'Daily STANDUP',
+            ]);
+        $timeEntryUnderstand = TimeEntry::factory()
+            ->forOrganization($data->organization)
+            ->forMember($data->member)
+            ->create([
+                'start' => Carbon::now()->subHour(),
+                'description' => 'Understand the spec',
+            ]);
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->getJson(route('api.v1.time-entries.index', [
+            $data->organization->getKey(),
+            'description' => 'stand',
+            'start' => Carbon::now()->subDay()->toIso8601ZuluString(),
+            'end' => Carbon::now()->addDay()->toIso8601ZuluString(),
+        ]));
+
+        // Assert
+        $response->assertValid();
+        $this->assertResponseCode($response, 200);
+        $response->assertJsonCount(2, 'data');
+        $returnedIds = collect($response->json('data'))->pluck('id');
+        $this->assertTrue($returnedIds->contains($timeEntryStandup->getKey()));
+        $this->assertTrue($returnedIds->contains($timeEntryUnderstand->getKey()));
+    }
+
+    public function test_index_endpoint_with_description_filter_treats_percent_as_a_literal(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission([
+            'time-entries:view:all',
+        ]);
+        $timeEntryWithPercent = TimeEntry::factory()
+            ->forOrganization($data->organization)
+            ->forMember($data->member)
+            ->create([
+                'start' => Carbon::now()->subHour(),
+                'description' => 'Discount 50% off',
+            ]);
+        $timeEntryWithoutPercent = TimeEntry::factory()
+            ->forOrganization($data->organization)
+            ->forMember($data->member)
+            ->create([
+                'start' => Carbon::now()->subHour(),
+                'description' => 'Discount 5000 off',
+            ]);
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->getJson(route('api.v1.time-entries.index', [
+            $data->organization->getKey(),
+            'description' => '50%',
+            'start' => Carbon::now()->subDay()->toIso8601ZuluString(),
+            'end' => Carbon::now()->addDay()->toIso8601ZuluString(),
+        ]));
+
+        // Assert
+        $response->assertValid();
+        $this->assertResponseCode($response, 200);
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.id', $timeEntryWithPercent->getKey());
+        $returnedIds = collect($response->json('data'))->pluck('id');
+        $this->assertFalse($returnedIds->contains($timeEntryWithoutPercent->getKey()));
+    }
+
+    public function test_index_endpoint_with_empty_description_filter_returns_all_entries(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission([
+            'time-entries:view:all',
+        ]);
+        TimeEntry::factory()
+            ->forOrganization($data->organization)
+            ->forMember($data->member)
+            ->create([
+                'start' => Carbon::now()->subHour(),
+                'description' => 'Daily standup',
+            ]);
+        TimeEntry::factory()
+            ->forOrganization($data->organization)
+            ->forMember($data->member)
+            ->create([
+                'start' => Carbon::now()->subHour(),
+                'description' => 'Invoice review',
+            ]);
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->getJson(route('api.v1.time-entries.index', [
+            $data->organization->getKey(),
+            'description' => '',
+            'start' => Carbon::now()->subDay()->toIso8601ZuluString(),
+            'end' => Carbon::now()->addDay()->toIso8601ZuluString(),
+        ]));
+
+        // Assert
+        $response->assertValid();
+        $this->assertResponseCode($response, 200);
+        $response->assertJsonCount(2, 'data');
+    }
+
+    public function test_index_endpoint_rejects_description_filter_that_is_too_long(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission([
+            'time-entries:view:all',
+        ]);
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->getJson(route('api.v1.time-entries.index', [
+            $data->organization->getKey(),
+            'description' => str_repeat('a', 501),
+        ]));
+
+        // Assert
+        $this->assertResponseCode($response, 422);
+        $response->assertInvalid(['description']);
+    }
+
+    public function test_aggregate_endpoint_with_description_filter_only_aggregates_matching_entries(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission([
+            'time-entries:view:all',
+        ]);
+        TimeEntry::factory()
+            ->forOrganization($data->organization)
+            ->forMember($data->member)
+            ->startWithDuration(Carbon::now()->subHour(), 100)
+            ->create([
+                'description' => 'Daily standup',
+            ]);
+        TimeEntry::factory()
+            ->forOrganization($data->organization)
+            ->forMember($data->member)
+            ->startWithDuration(Carbon::now()->subHour(), 200)
+            ->create([
+                'description' => 'Invoice review',
+            ]);
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->getJson(route('api.v1.time-entries.aggregate', [
+            $data->organization->getKey(),
+            'description' => 'standup',
+            'start' => Carbon::now()->subDay()->toIso8601ZuluString(),
+            'end' => Carbon::now()->addDay()->toIso8601ZuluString(),
+        ]));
+
+        // Assert: only the matching entry (100s) is aggregated
+        $response->assertValid();
+        $this->assertResponseCode($response, 200);
+        $response->assertJsonPath('data.seconds', 100);
+    }
+
+    public function test_index_export_endpoint_accepts_a_description_filter(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission([
+            'time-entries:view:all',
+        ]);
+        TimeEntry::factory()
+            ->forOrganization($data->organization)
+            ->forMember($data->member)
+            ->startWithDuration(Carbon::now(), 100)
+            ->create([
+                'description' => 'Daily standup',
+            ]);
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->getJson(route('api.v1.time-entries.index-export', [
+            $data->organization->getKey(),
+            'format' => ExportFormat::CSV,
+            'description' => 'standup',
+            'start' => Carbon::now()->startOfYear()->toIso8601ZuluString(),
+            'end' => Carbon::now()->endOfYear()->toIso8601ZuluString(),
+        ]));
+
+        // Assert
+        $response->assertValid();
+        $this->assertResponseCode($response, 200);
+    }
+
+    public function test_aggregate_export_endpoint_accepts_a_description_filter(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission([
+            'time-entries:view:all',
+        ]);
+        TimeEntry::factory()
+            ->forOrganization($data->organization)
+            ->forMember($data->member)
+            ->startWithDuration(Carbon::now(), 100)
+            ->create([
+                'description' => 'Daily standup',
+            ]);
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->getJson(route('api.v1.time-entries.aggregate-export', [
+            $data->organization->getKey(),
+            'format' => ExportFormat::CSV,
+            'description' => 'standup',
+            'group' => 'project',
+            'sub_group' => 'task',
+            'history_group' => 'day',
+            'start' => Carbon::now()->startOfYear()->toIso8601ZuluString(),
+            'end' => Carbon::now()->endOfYear()->toIso8601ZuluString(),
+        ]));
+
+        // Assert
+        $response->assertValid();
+        $this->assertResponseCode($response, 200);
+    }
+
     public function test_index_endpoint_can_filter_by_type(): void
     {
         // Arrange

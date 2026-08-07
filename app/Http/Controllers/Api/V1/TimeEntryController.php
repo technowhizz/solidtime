@@ -211,6 +211,7 @@ class TimeEntryController extends Controller
         $filter->addClientIdsFilter($request->input('client_ids'));
         $filter->addBillableFilter($request->input('billable'));
         $filter->addTypeFilter($request->input('type'));
+        $filter->addDescriptionFilter($request->input('description'));
 
         return $filter->get();
     }
@@ -571,6 +572,7 @@ class TimeEntryController extends Controller
         $filter->addClientIdsFilter($request->input('client_ids'));
         $filter->addBillableFilter($request->input('billable'));
         $filter->addTypeFilter($request->input('type'));
+        $filter->addDescriptionFilter($request->input('description'));
 
         return $filter->get();
     }

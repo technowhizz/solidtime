@@ -807,4 +807,96 @@ class ReportEndpointTest extends ApiEndpointTestAbstract
         $response->assertStatus(422);
         $response->assertInvalid(['properties.tag_match_type']);
     }
+
+    public function test_store_endpoint_persists_description_filter(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission([
+            'reports:create',
+        ]);
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->withoutExceptionHandling()->postJson(route('api.v1.reports.store', [$data->organization->getKey()]), [
+            'name' => 'Report with description filter',
+            // The report's own description is unrelated to the time entry description filter
+            'description' => 'Numbers I sent to the client',
+            'is_public' => false,
+            'properties' => [
+                'start' => Carbon::now()->subDays(30)->toIso8601ZuluString(),
+                'end' => Carbon::now()->toIso8601ZuluString(),
+                'group' => TimeEntryAggregationType::Project->value,
+                'sub_group' => TimeEntryAggregationType::Task->value,
+                'history_group' => TimeEntryAggregationType::Day->value,
+                'description' => 'client meeting',
+            ],
+        ]);
+
+        // Assert
+        $response->assertStatus(201);
+        /** @var Report $report */
+        $report = Report::query()->findOrFail($response->json('data.id'));
+        $this->assertSame('client meeting', $report->properties->description);
+        // The two description fields stay separate
+        $this->assertSame('Numbers I sent to the client', $report->description);
+        $response->assertJsonPath('data.properties.description', 'client meeting');
+        $response->assertJsonPath('data.description', 'Numbers I sent to the client');
+    }
+
+    public function test_store_endpoint_normalizes_a_whitespace_only_description_filter_to_null(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission([
+            'reports:create',
+        ]);
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->withoutExceptionHandling()->postJson(route('api.v1.reports.store', [$data->organization->getKey()]), [
+            'name' => 'Report with a blank description filter',
+            'is_public' => false,
+            'properties' => [
+                'start' => Carbon::now()->subDays(30)->toIso8601ZuluString(),
+                'end' => Carbon::now()->toIso8601ZuluString(),
+                'group' => TimeEntryAggregationType::Project->value,
+                'sub_group' => TimeEntryAggregationType::Task->value,
+                'history_group' => TimeEntryAggregationType::Day->value,
+                'description' => '   ',
+            ],
+        ]);
+
+        // Assert
+        $response->assertStatus(201);
+        /** @var Report $report */
+        $report = Report::query()->findOrFail($response->json('data.id'));
+        $this->assertNull($report->properties->description);
+        $response->assertJsonPath('data.properties.description', null);
+    }
+
+    public function test_store_endpoint_rejects_description_filter_that_is_too_long(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission([
+            'reports:create',
+        ]);
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->postJson(route('api.v1.reports.store', [$data->organization->getKey()]), [
+            'name' => 'Report with an overlong description filter',
+            'is_public' => false,
+            'properties' => [
+                'start' => Carbon::now()->subDays(30)->toIso8601ZuluString(),
+                'end' => Carbon::now()->toIso8601ZuluString(),
+                'group' => TimeEntryAggregationType::Project->value,
+                'sub_group' => TimeEntryAggregationType::Task->value,
+                'history_group' => TimeEntryAggregationType::Day->value,
+                'description' => str_repeat('a', 501),
+            ],
+        ]);
+
+        // Assert
+        $response->assertStatus(422);
+        $response->assertInvalid(['properties.description']);
+    }
 }

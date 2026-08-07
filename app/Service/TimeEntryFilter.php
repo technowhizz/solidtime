@@ -172,6 +172,30 @@ class TimeEntryFilter
     }
 
     /**
+     * Filter time entries whose description contains the given term (case-insensitive substring match).
+     *
+     * A null, empty or whitespace-only term is treated as "no filter" so that an empty search box
+     * does not degenerate into `ILIKE '%%'`.
+     */
+    public function addDescriptionFilter(?string $description): self
+    {
+        if ($description === null) {
+            return $this;
+        }
+        $term = trim($description);
+        if ($term === '') {
+            return $this;
+        }
+        // Escape the LIKE metacharacters so that searching for "50%" or "a_b" is a literal match
+        // instead of a wildcard. The backslash itself must be escaped too, otherwise a trailing "\"
+        // would escape the closing "%" we append.
+        $escaped = addcslashes($term, '\\%_');
+        $this->builder->where('description', 'ilike', '%'.$escaped.'%');
+
+        return $this;
+    }
+
+    /**
      * @param  array<string>|null  $clientIds
      */
     public function addClientIdsFilter(?array $clientIds): self

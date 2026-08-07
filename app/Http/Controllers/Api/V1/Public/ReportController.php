@@ -63,6 +63,7 @@ class ReportController extends Controller
         $filter->addTagIdsFilter($properties->tagIds?->toArray(), $properties->tagMatchType);
         $filter->addTaskIdsFilter($properties->taskIds?->toArray());
         $filter->addClientIdsFilter($properties->clientIds?->toArray());
+        $filter->addDescriptionFilter($properties->description);
         $timeEntriesQuery = $filter->get();
 
         $data = $timeEntryAggregationService->getAggregatedTimeEntriesWithDescriptions(

@@ -6,6 +6,7 @@ const props = defineProps<{
     title: string;
     count?: number;
     active?: boolean;
+    label?: string;
 }>();
 import { type Component, computed } from 'vue';
 import { twMerge } from 'tailwind-merge';
@@ -33,6 +34,11 @@ const iconClass = computed(() => {
             v-if="count"
             class="bg-accent-300/20 w-5 h-5 font-medium rounded flex items-center transition justify-center">
             {{ count }}
+        </div>
+        <div
+            v-else-if="label"
+            class="bg-accent-300/20 h-5 max-w-32 truncate px-1.5 font-medium rounded flex items-center transition justify-center">
+            {{ label }}
         </div>
     </Button>
 </template>

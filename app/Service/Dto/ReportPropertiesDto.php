@@ -61,6 +61,13 @@ class ReportPropertiesDto implements Castable
     public ?TagMatchType $tagMatchType = null;
 
     /**
+     * Filter by a case-insensitive substring match on the time entry description.
+     *
+     * Note: this is the time entry description filter, not the report's own description.
+     */
+    public ?string $description = null;
+
+    /**
      * @var Collection<int, string>|null
      */
     public ?Collection $taskIds = null;
@@ -122,6 +129,8 @@ class ReportPropertiesDto implements Castable
                 $dto->projectIds = $data->projectIds !== null ? ReportPropertiesDto::idArrayToCollection($data->projectIds) : null;
                 $dto->tagIds = $data->tagIds !== null ? ReportPropertiesDto::idArrayToCollection($data->tagIds) : null;
                 $dto->tagMatchType = isset($data->tagMatchType) ? TagMatchType::from($data->tagMatchType) : null;
+                // Note: description was added later so it is possible that the value is missing in persisted reports in the DB
+                $dto->description = isset($data->description) && is_string($data->description) ? $data->description : null;
                 $dto->taskIds = $data->taskIds ? ReportPropertiesDto::idArrayToCollection($data->taskIds) : null;
                 $dto->group = TimeEntryAggregationType::from($data->group);
                 $dto->subGroup = TimeEntryAggregationType::from($data->subGroup);
@@ -158,6 +167,7 @@ class ReportPropertiesDto implements Castable
                     'projectIds' => $value->projectIds?->toArray(),
                     'tagIds' => $value->tagIds?->toArray(),
                     'tagMatchType' => $value->tagMatchType?->value,
+                    'description' => $value->description,
                     'taskIds' => $value->taskIds?->toArray(),
                     'group' => $value->group->value,
                     'subGroup' => $value->subGroup->value,
@@ -234,6 +244,16 @@ class ReportPropertiesDto implements Castable
     public function setTagMatchType(?TagMatchType $tagMatchType): void
     {
         $this->tagMatchType = $tagMatchType;
+    }
+
+    /**
+     * Normalizes an empty or whitespace-only term to null so that persisted reports do not carry a
+     * filter that is active in name only.
+     */
+    public function setDescription(?string $description): void
+    {
+        $trimmed = $description !== null ? trim($description) : null;
+        $this->description = $trimmed === '' ? null : $trimmed;
     }
 
     /**

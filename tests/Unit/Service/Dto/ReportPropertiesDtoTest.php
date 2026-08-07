@@ -88,4 +88,62 @@ class ReportPropertiesDtoTest extends TestCase
         $this->assertSame(TimeEntryType::Work, $dtoWork->timeEntryType);
         $this->assertSame(TimeEntryType::Break, $dtoBreak->timeEntryType);
     }
+
+    public function test_description_is_null_if_the_value_is_missing_in_the_persisted_report(): void
+    {
+        // Arrange
+        // Reports persisted before the description filter existed do not carry the key at all
+        $properties = $this->getBaseProperties();
+
+        // Act
+        $dto = $this->castFromJson($properties);
+
+        // Assert
+        $this->assertNull($dto->description);
+    }
+
+    public function test_description_is_null_if_the_persisted_report_has_it_set_to_null(): void
+    {
+        // Arrange
+        $properties = $this->getBaseProperties();
+        $properties['description'] = null;
+
+        // Act
+        $dto = $this->castFromJson($properties);
+
+        // Assert
+        $this->assertNull($dto->description);
+    }
+
+    public function test_description_is_read_from_the_persisted_report(): void
+    {
+        // Arrange
+        $properties = $this->getBaseProperties();
+        $properties['description'] = 'client meeting';
+
+        // Act
+        $dto = $this->castFromJson($properties);
+
+        // Assert
+        $this->assertSame('client meeting', $dto->description);
+    }
+
+    public function test_set_description_trims_the_term_and_normalizes_blank_values_to_null(): void
+    {
+        // Arrange
+        $dto = new ReportPropertiesDto;
+
+        // Act + Assert
+        $dto->setDescription('  client meeting  ');
+        $this->assertSame('client meeting', $dto->description);
+
+        $dto->setDescription('   ');
+        $this->assertNull($dto->description);
+
+        $dto->setDescription('');
+        $this->assertNull($dto->description);
+
+        $dto->setDescription(null);
+        $this->assertNull($dto->description);
+    }
 }

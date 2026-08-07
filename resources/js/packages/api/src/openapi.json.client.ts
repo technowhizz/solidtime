@@ -452,6 +452,7 @@ const ReportStoreRequest = z
                 project_ids: z.union([z.array(z.string()), z.null()]).optional(),
                 tag_ids: z.union([z.array(z.string()), z.null()]).optional(),
                 tag_match_type: z.enum(['contains', 'not_contains']).optional(),
+                description: z.union([z.string(), z.null()]).optional(),
                 task_ids: z.union([z.array(z.string()), z.null()]).optional(),
                 group: TimeEntryAggregationType,
                 sub_group: TimeEntryAggregationType,
@@ -487,6 +488,7 @@ const DetailedReportResource = z
                 project_ids: z.union([z.array(z.string()), z.null()]),
                 tag_ids: z.union([z.array(z.string()), z.null()]),
                 tag_match_type: z.union([z.enum(['contains', 'not_contains']), z.null()]),
+                description: z.union([z.string(), z.null()]),
                 task_ids: z.union([z.array(z.string()), z.null()]),
                 rounding_type: z.union([z.string(), z.null()]),
                 rounding_minutes: z.union([z.number(), z.null()]),
@@ -3807,6 +3809,11 @@ Users with the permission &#x60;time-entries:view:own&#x60; can only use this en
                 schema: z.enum(['contains', 'not_contains']).optional(),
             },
             {
+                name: 'description',
+                type: 'Query',
+                schema: z.string().max(500).optional(),
+            },
+            {
                 name: 'task_ids',
                 type: 'Query',
                 schema: z.array(z.string()).min(1).optional(),
@@ -4202,6 +4209,11 @@ If the group parameters are all set to &#x60;null&#x60; or are all missing, the 
                 schema: z.enum(['contains', 'not_contains']).optional(),
             },
             {
+                name: 'description',
+                type: 'Query',
+                schema: z.string().max(500).optional(),
+            },
+            {
                 name: 'task_ids',
                 type: 'Query',
                 schema: z.array(z.string()).min(1).optional(),
@@ -4408,6 +4420,11 @@ If the group parameters are all set to &#x60;null&#x60; or are all missing, the 
                 schema: z.enum(['contains', 'not_contains']).optional(),
             },
             {
+                name: 'description',
+                type: 'Query',
+                schema: z.string().max(500).optional(),
+            },
+            {
                 name: 'task_ids',
                 type: 'Query',
                 schema: z.array(z.string()).min(1).optional(),
@@ -4544,6 +4561,11 @@ If the group parameters are all set to &#x60;null&#x60; or are all missing, the 
                 name: 'tag_match_type',
                 type: 'Query',
                 schema: z.enum(['contains', 'not_contains']).optional(),
+            },
+            {
+                name: 'description',
+                type: 'Query',
+                schema: z.string().max(500).optional(),
             },
             {
                 name: 'task_ids',

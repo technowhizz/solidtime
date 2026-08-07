@@ -69,6 +69,7 @@ const selectedMembers = ref<string[]>([]);
 const selectedTasks = ref<string[]>([]);
 const selectedClients = ref<string[]>([]);
 const tagMatchType = ref<TagMatchType>('contains');
+const descriptionFilter = ref<string>('');
 
 const billable = ref<'true' | 'false' | null>(null);
 const entryType = ref<'work' | 'break' | null>('work');
@@ -126,6 +127,7 @@ const filterParams = computed<AggregatedTimeEntriesQueryParams>(() => {
         client_ids: selectedClients.value.length > 0 ? selectedClients.value : undefined,
         tag_ids: selectedTags.value.length > 0 ? selectedTags.value : undefined,
         tag_match_type: selectedTags.value.length > 0 ? tagMatchType.value : undefined,
+        description: descriptionFilter.value.length > 0 ? descriptionFilter.value : undefined,
         billable: billable.value !== null ? billable.value : undefined,
         type: entryType.value !== null ? entryType.value : undefined,
         member_id: getCurrentRole() === 'employee' ? getCurrentMembershipId() : undefined,
@@ -373,6 +375,7 @@ const tableData = computed(() => {
         v-model:selected-clients="selectedClients"
         v-model:selected-tags="selectedTags"
         v-model:tag-match-type="tagMatchType"
+        v-model:description-filter="descriptionFilter"
         v-model:billable="billable"
         v-model:entry-type="entryType"
         v-model:rounding-enabled="roundingEnabled"

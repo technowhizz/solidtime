@@ -60,6 +60,8 @@ class DetailedReportResource extends BaseResource
                 'tag_ids' => $this->resource->properties->tagIds?->toArray(),
                 /** @var string|null $tag_match_type Tag match type */
                 'tag_match_type' => $this->resource->properties->tagMatchType?->value,
+                /** @var string|null $description Filter by a case-insensitive substring match on the time entry description */
+                'description' => $this->resource->properties->description,
                 /** @var array<string>|null $task_ids Filter by task IDs, task IDs are OR combined */
                 'task_ids' => $this->resource->properties->taskIds?->toArray(),
                 /** @var string|null $rounding_type Rounding type for time entries */

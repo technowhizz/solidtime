@@ -435,4 +435,208 @@ class TimeEntryFilterTest extends TestCaseWithDatabase
         $this->assertTrue($timeEntries->contains($timeEntryWithTag));
         $this->assertFalse($timeEntries->contains($timeEntryWithoutTag));
     }
+
+    public function test_add_description_filter_matches_substring_case_insensitively(): void
+    {
+        // Arrange
+        $timeEntryUpperCase = TimeEntry::factory()->create(['description' => 'Fixed the login BUG']);
+        $timeEntryLowerCase = TimeEntry::factory()->create(['description' => 'bugfix release']);
+        $timeEntryNoMatch = TimeEntry::factory()->create(['description' => 'unrelated work']);
+
+        $builder = TimeEntry::query();
+        $filter = new TimeEntryFilter($builder);
+
+        // Act
+        $filter->addDescriptionFilter('bug');
+
+        // Assert
+        $timeEntries = $builder->get();
+        $this->assertCount(2, $timeEntries);
+        $this->assertTrue($timeEntries->contains($timeEntryUpperCase));
+        $this->assertTrue($timeEntries->contains($timeEntryLowerCase));
+        $this->assertFalse($timeEntries->contains($timeEntryNoMatch));
+    }
+
+    public function test_add_description_filter_escapes_percent_wildcard(): void
+    {
+        // Arrange
+        $timeEntryWithPercent = TimeEntry::factory()->create(['description' => 'Discount 50% off']);
+        $timeEntryWithoutPercent = TimeEntry::factory()->create(['description' => 'Discount 5000 off']);
+
+        $builder = TimeEntry::query();
+        $filter = new TimeEntryFilter($builder);
+
+        // Act: the "%" must be matched literally, not as a wildcard
+        $filter->addDescriptionFilter('50%');
+
+        // Assert
+        $timeEntries = $builder->get();
+        $this->assertCount(1, $timeEntries);
+        $this->assertTrue($timeEntries->contains($timeEntryWithPercent));
+        $this->assertFalse($timeEntries->contains($timeEntryWithoutPercent));
+    }
+
+    public function test_add_description_filter_with_only_a_percent_does_not_match_everything(): void
+    {
+        // Arrange
+        $timeEntryWithPercent = TimeEntry::factory()->create(['description' => '100% done']);
+        $timeEntryWithoutPercent = TimeEntry::factory()->create(['description' => 'all done']);
+
+        $builder = TimeEntry::query();
+        $filter = new TimeEntryFilter($builder);
+
+        // Act
+        $filter->addDescriptionFilter('%');
+
+        // Assert
+        $timeEntries = $builder->get();
+        $this->assertCount(1, $timeEntries);
+        $this->assertTrue($timeEntries->contains($timeEntryWithPercent));
+        $this->assertFalse($timeEntries->contains($timeEntryWithoutPercent));
+    }
+
+    public function test_add_description_filter_escapes_underscore_wildcard(): void
+    {
+        // Arrange
+        $timeEntryWithUnderscore = TimeEntry::factory()->create(['description' => 'foo_bar']);
+        $timeEntryWithOtherCharacter = TimeEntry::factory()->create(['description' => 'fooXbar']);
+
+        $builder = TimeEntry::query();
+        $filter = new TimeEntryFilter($builder);
+
+        // Act: the "_" must be matched literally, not as a single-character wildcard
+        $filter->addDescriptionFilter('foo_bar');
+
+        // Assert
+        $timeEntries = $builder->get();
+        $this->assertCount(1, $timeEntries);
+        $this->assertTrue($timeEntries->contains($timeEntryWithUnderscore));
+        $this->assertFalse($timeEntries->contains($timeEntryWithOtherCharacter));
+    }
+
+    public function test_add_description_filter_escapes_backslash(): void
+    {
+        // Arrange
+        $timeEntryWithBackslash = TimeEntry::factory()->create(['description' => 'path C:\temp here']);
+        $timeEntryWithoutBackslash = TimeEntry::factory()->create(['description' => 'path C:temp here']);
+
+        $builder = TimeEntry::query();
+        $filter = new TimeEntryFilter($builder);
+
+        // Act
+        $filter->addDescriptionFilter('C:\temp');
+
+        // Assert
+        $timeEntries = $builder->get();
+        $this->assertCount(1, $timeEntries);
+        $this->assertTrue($timeEntries->contains($timeEntryWithBackslash));
+        $this->assertFalse($timeEntries->contains($timeEntryWithoutBackslash));
+    }
+
+    public function test_add_description_filter_with_trailing_backslash_does_not_break_the_pattern(): void
+    {
+        // Arrange
+        // A trailing backslash would escape the closing "%" of the pattern if it were not escaped.
+        $timeEntryWithBackslash = TimeEntry::factory()->create(['description' => 'ends with foo\ here']);
+        $timeEntryWithoutBackslash = TimeEntry::factory()->create(['description' => 'ends with foo here']);
+
+        $builder = TimeEntry::query();
+        $filter = new TimeEntryFilter($builder);
+
+        // Act
+        $filter->addDescriptionFilter('foo\\');
+
+        // Assert
+        $timeEntries = $builder->get();
+        $this->assertCount(1, $timeEntries);
+        $this->assertTrue($timeEntries->contains($timeEntryWithBackslash));
+        $this->assertFalse($timeEntries->contains($timeEntryWithoutBackslash));
+    }
+
+    public function test_add_description_filter_with_null_applies_no_filter(): void
+    {
+        // Arrange
+        TimeEntry::factory()->create(['description' => 'one']);
+        TimeEntry::factory()->create(['description' => 'two']);
+        TimeEntry::factory()->create(['description' => 'three']);
+
+        $builder = TimeEntry::query();
+        $filter = new TimeEntryFilter($builder);
+
+        // Act
+        $filter->addDescriptionFilter(null);
+
+        // Assert
+        $this->assertCount(3, $builder->get());
+    }
+
+    public function test_add_description_filter_with_empty_string_applies_no_filter(): void
+    {
+        // Arrange
+        TimeEntry::factory()->create(['description' => 'one']);
+        TimeEntry::factory()->create(['description' => '']);
+
+        $builder = TimeEntry::query();
+        $filter = new TimeEntryFilter($builder);
+
+        // Act
+        $filter->addDescriptionFilter('');
+
+        // Assert
+        $this->assertCount(2, $builder->get());
+    }
+
+    public function test_add_description_filter_with_whitespace_only_applies_no_filter(): void
+    {
+        // Arrange
+        TimeEntry::factory()->create(['description' => 'one']);
+        TimeEntry::factory()->create(['description' => 'two']);
+
+        $builder = TimeEntry::query();
+        $filter = new TimeEntryFilter($builder);
+
+        // Act
+        $filter->addDescriptionFilter('   ');
+
+        // Assert
+        $this->assertCount(2, $builder->get());
+    }
+
+    public function test_add_description_filter_trims_surrounding_whitespace(): void
+    {
+        // Arrange
+        $timeEntry = TimeEntry::factory()->create(['description' => 'meeting notes']);
+        TimeEntry::factory()->create(['description' => 'unrelated']);
+
+        $builder = TimeEntry::query();
+        $filter = new TimeEntryFilter($builder);
+
+        // Act
+        $filter->addDescriptionFilter('  meeting  ');
+
+        // Assert
+        $timeEntries = $builder->get();
+        $this->assertCount(1, $timeEntries);
+        $this->assertTrue($timeEntries->contains($timeEntry));
+    }
+
+    public function test_add_description_filter_does_not_match_entries_with_empty_description(): void
+    {
+        // Arrange
+        // The application stores an empty string instead of null when there is no description.
+        $timeEntryWithDescription = TimeEntry::factory()->create(['description' => 'standup']);
+        $timeEntryWithoutDescription = TimeEntry::factory()->create(['description' => '']);
+
+        $builder = TimeEntry::query();
+        $filter = new TimeEntryFilter($builder);
+
+        // Act
+        $filter->addDescriptionFilter('standup');
+
+        // Assert
+        $timeEntries = $builder->get();
+        $this->assertCount(1, $timeEntries);
+        $this->assertTrue($timeEntries->contains($timeEntryWithDescription));
+        $this->assertFalse($timeEntries->contains($timeEntryWithoutDescription));
+    }
 }

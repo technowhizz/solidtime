@@ -145,6 +145,12 @@ class TimeEntryAggregateExportRequest extends BaseFormRequest
                 'string',
                 Rule::enum(TagMatchType::class),
             ],
+            // Filter by a case-insensitive substring match on the time entry description
+            'description' => [
+                'nullable',
+                'string',
+                'max:500',
+            ],
             // Filter by task IDs, task IDs are OR combined
             'task_ids' => [
                 'array',

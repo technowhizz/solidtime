@@ -768,4 +768,97 @@ class PublicReportEndpointTest extends ApiEndpointTestAbstract
             ],
         ]);
     }
+
+    public function test_show_applies_description_filter(): void
+    {
+        // Arrange
+        $organization = Organization::factory()->create();
+        TimeEntry::factory()->forOrganization($organization)
+            ->startWithDuration(now()->subDay(), 100)
+            ->create([
+                'description' => 'Client meeting',
+            ]);
+        // Different casing still matches
+        TimeEntry::factory()->forOrganization($organization)
+            ->startWithDuration(now()->subDay(), 200)
+            ->create([
+                'description' => 'client MEETING follow-up',
+            ]);
+        TimeEntry::factory()->forOrganization($organization)
+            ->startWithDuration(now()->subDay(), 50)
+            ->create([
+                'description' => 'internal admin',
+            ]);
+
+        $reportDto = new ReportPropertiesDto;
+        $reportDto->start = now()->subDays(2);
+        $reportDto->end = now();
+        $reportDto->group = TimeEntryAggregationType::Project;
+        $reportDto->subGroup = TimeEntryAggregationType::Task;
+        $reportDto->historyGroup = TimeEntryAggregationTypeInterval::Day;
+        $reportDto->weekStart = Weekday::Monday;
+        $reportDto->timezone = 'Europe/Vienna';
+        $reportDto->setDescription('client meeting');
+        $report = Report::factory()->forOrganization($organization)->public()->create([
+            'public_until' => null,
+            'properties' => $reportDto,
+        ]);
+
+        // Act
+        $response = $this->getJson(route('api.v1.public.reports.show'), [
+            'X-Api-Key' => $report->share_secret,
+        ]);
+
+        // Assert: the two "client meeting" entries (100s + 200s) are included, "internal admin" is not
+        $response->assertOk();
+        $response->assertJson([
+            'data' => [
+                'seconds' => 300,
+                'grouped_type' => TimeEntryAggregationType::Project->value,
+            ],
+        ]);
+    }
+
+    public function test_show_ignores_a_missing_description_filter_in_a_legacy_report(): void
+    {
+        // Arrange
+        $organization = Organization::factory()->create();
+        TimeEntry::factory()->forOrganization($organization)
+            ->startWithDuration(now()->subDay(), 100)
+            ->create([
+                'description' => 'Client meeting',
+            ]);
+        TimeEntry::factory()->forOrganization($organization)
+            ->startWithDuration(now()->subDay(), 50)
+            ->create([
+                'description' => 'internal admin',
+            ]);
+
+        // A report saved before the description filter existed leaves the property at its default
+        $reportDto = new ReportPropertiesDto;
+        $reportDto->start = now()->subDays(2);
+        $reportDto->end = now();
+        $reportDto->group = TimeEntryAggregationType::Project;
+        $reportDto->subGroup = TimeEntryAggregationType::Task;
+        $reportDto->historyGroup = TimeEntryAggregationTypeInterval::Day;
+        $reportDto->weekStart = Weekday::Monday;
+        $reportDto->timezone = 'Europe/Vienna';
+        $report = Report::factory()->forOrganization($organization)->public()->create([
+            'public_until' => null,
+            'properties' => $reportDto,
+        ]);
+
+        // Act
+        $response = $this->getJson(route('api.v1.public.reports.show'), [
+            'X-Api-Key' => $report->share_secret,
+        ]);
+
+        // Assert: no filter is applied, both entries are aggregated
+        $response->assertOk();
+        $response->assertJson([
+            'data' => [
+                'seconds' => 150,
+            ],
+        ]);
+    }
 }

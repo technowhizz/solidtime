@@ -131,6 +131,13 @@ class ReportStoreRequest extends BaseFormRequest
                 'string',
                 Rule::enum(TagMatchType::class),
             ],
+            // Filter by a case-insensitive substring match on the time entry description.
+            // Note: this is unrelated to the top-level 'description' rule, which is the report's own description.
+            'properties.description' => [
+                'nullable',
+                'string',
+                'max:500',
+            ],
             'properties.task_ids' => [
                 'nullable',
                 'array',

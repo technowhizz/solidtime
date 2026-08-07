@@ -10,6 +10,7 @@ import TaskMultiselectDropdown from '@/Components/Common/Task/TaskMultiselectDro
 import ClientMultiselectDropdown from '@/Components/Common/Client/ClientMultiselectDropdown.vue';
 import MemberMultiselectDropdown from '@/Components/Common/Member/MemberMultiselectDropdown.vue';
 import ReportingFilterBadge from '@/Components/Common/Reporting/ReportingFilterBadge.vue';
+import ReportingDescriptionFilter from '@/Components/Common/Reporting/ReportingDescriptionFilter.vue';
 import ProjectMultiselectDropdown from '@/Components/Common/Project/ProjectMultiselectDropdown.vue';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/packages/ui/src';
 import MainContainer from '@/packages/ui/src/MainContainer.vue';
@@ -27,6 +28,7 @@ const selectedTasks = defineModel<string[]>('selectedTasks', { required: true })
 const selectedClients = defineModel<string[]>('selectedClients', { required: true });
 const selectedTags = defineModel<string[]>('selectedTags', { required: true });
 const tagMatchType = defineModel<TagMatchType>('tagMatchType', { required: true });
+const descriptionFilter = defineModel<string>('descriptionFilter', { required: true });
 const billable = defineModel<'true' | 'false' | null>('billable', { required: true });
 const entryType = defineModel<'work' | 'break' | null>('entryType', { required: true });
 const roundingEnabled = defineModel<boolean>('roundingEnabled', { required: true });
@@ -140,6 +142,7 @@ async function createTag(name: string) {
                         </div>
                     </template>
                 </TagDropdown>
+                <ReportingDescriptionFilter v-model="descriptionFilter" @submit="emit('submit')" />
 
                 <Select v-model="billable" @update:model-value="emit('submit')">
                     <SelectTrigger
