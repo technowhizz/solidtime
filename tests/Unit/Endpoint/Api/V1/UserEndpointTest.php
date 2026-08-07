@@ -45,6 +45,7 @@ class UserEndpointTest extends ApiEndpointTestAbstract
                 'profile_photo_url' => $data->user->profile_photo_url,
                 'timezone' => $data->user->timezone,
                 'week_start' => $data->user->week_start->value,
+                'calendar_week_days' => $data->user->calendar_week_days,
             ],
         ]);
     }
@@ -142,6 +143,7 @@ class UserEndpointTest extends ApiEndpointTestAbstract
             'name' => 'Updated Name',
             'timezone' => 'America/New_York',
             'week_start' => Weekday::Sunday->value,
+            'calendar_week_days' => 5,
         ]);
 
         // Assert
@@ -152,6 +154,7 @@ class UserEndpointTest extends ApiEndpointTestAbstract
                 'name' => 'Updated Name',
                 'timezone' => 'America/New_York',
                 'week_start' => Weekday::Sunday->value,
+                'calendar_week_days' => 5,
             ],
         ]);
 
@@ -159,6 +162,7 @@ class UserEndpointTest extends ApiEndpointTestAbstract
         $this->assertSame('Updated Name', $user->name);
         $this->assertSame('America/New_York', $user->timezone);
         $this->assertSame(Weekday::Sunday, $user->week_start);
+        $this->assertSame(5, $user->calendar_week_days);
     }
 
     public function test_update_does_not_change_user_fields_that_are_not_given(): void
@@ -168,6 +172,7 @@ class UserEndpointTest extends ApiEndpointTestAbstract
         $data->user->name = 'Original Name';
         $data->user->timezone = 'Europe/Vienna';
         $data->user->week_start = Weekday::Monday;
+        $data->user->calendar_week_days = 4;
         $data->user->save();
         Passport::actingAs($data->user);
 
@@ -182,6 +187,7 @@ class UserEndpointTest extends ApiEndpointTestAbstract
                 'name' => 'Original Name',
                 'timezone' => 'Europe/Vienna',
                 'week_start' => Weekday::Monday->value,
+                'calendar_week_days' => 4,
             ],
         ]);
 
@@ -189,6 +195,7 @@ class UserEndpointTest extends ApiEndpointTestAbstract
         $this->assertSame('Original Name', $user->name);
         $this->assertSame('Europe/Vienna', $user->timezone);
         $this->assertSame(Weekday::Monday, $user->week_start);
+        $this->assertSame(4, $user->calendar_week_days);
     }
 
     public function test_update_email_stores_pending_email_and_sends_verification_email(): void
@@ -501,6 +508,38 @@ class UserEndpointTest extends ApiEndpointTestAbstract
         // Assert
         $response->assertUnprocessable();
         $response->assertJsonValidationErrors(['week_start']);
+    }
+
+    public function test_update_fails_if_calendar_week_days_is_out_of_range(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission();
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->putJson(route('api.v1.users.update', $data->user->getKey()), [
+            'calendar_week_days' => 8,
+        ]);
+
+        // Assert
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors(['calendar_week_days']);
+    }
+
+    public function test_update_fails_if_calendar_week_days_is_below_one(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission();
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->putJson(route('api.v1.users.update', $data->user->getKey()), [
+            'calendar_week_days' => 0,
+        ]);
+
+        // Assert
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors(['calendar_week_days']);
     }
 
     public function test_update_fails_if_photo_is_not_a_string(): void

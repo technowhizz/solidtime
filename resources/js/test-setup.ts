@@ -9,6 +9,7 @@ declare global {
     interface Window {
         getTimezoneSetting: () => string;
         getWeekStartSetting: () => string;
+        getCalendarWeekDaysSetting: () => number;
         getNumberFormat: () => string;
         getIntervalFormat: () => string;
     }
@@ -16,6 +17,7 @@ declare global {
 
 window.getTimezoneSetting = vi.fn(() => 'UTC');
 window.getWeekStartSetting = vi.fn(() => 'monday');
+window.getCalendarWeekDaysSetting = vi.fn(() => 7);
 window.getNumberFormat = vi.fn(() => 'point');
 window.getIntervalFormat = vi.fn(() => 'hours-minutes');
 

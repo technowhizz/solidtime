@@ -50,6 +50,14 @@ test('week-start change persists across reload', async ({ page }) => {
     await expect(page.getByLabel('Start of the week')).toHaveValue('sunday');
 });
 
+test('calendar day count change persists across reload', async ({ page }) => {
+    await goToProfilePage(page);
+    await page.getByLabel('Days shown in calendar').selectOption('5');
+    await saveProfileForm(page);
+    await page.reload();
+    await expect(page.getByLabel('Days shown in calendar')).toHaveValue('5');
+});
+
 test('profile photo can be uploaded, persists across reload, and can be removed', async ({
     page,
 }) => {

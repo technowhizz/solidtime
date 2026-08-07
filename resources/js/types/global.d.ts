@@ -11,6 +11,7 @@ declare global {
         vueAppSetupHook?: (app: App) => void;
         getWeekStartSetting: () => string;
         getTimezoneSetting: () => string;
+        getCalendarWeekDaysSetting: () => number;
     }
 
     let route: typeof ziggyRoute;

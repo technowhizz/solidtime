@@ -124,6 +124,10 @@ class UserController extends Controller
             $user->week_start = $request->getWeekStart();
         }
 
+        if ($request->getCalendarWeekDays() !== null) {
+            $user->calendar_week_days = $request->getCalendarWeekDays();
+        }
+
         $user->save();
 
         if ($emailToVerify !== null) {

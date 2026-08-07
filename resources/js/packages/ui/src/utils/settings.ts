@@ -22,6 +22,24 @@ const weekStartMap: Record<string, number> = {
 export function getWeekStartDayNumber(): number {
     return weekStartMap[getWeekStart()] ?? 1;
 }
+
+export const DEFAULT_CALENDAR_WEEK_DAYS = 7;
+
+/**
+ * Number of day columns the calendar week view renders (1-7).
+ *
+ * Unlike getWeekStart this falls back instead of throwing: a session whose shared
+ * Inertia props predate the deploy should degrade to a normal week, not white-screen
+ * the calendar.
+ */
+export function getCalendarWeekDays(): number {
+    const value = Number(window?.getCalendarWeekDaysSetting?.());
+
+    if (!Number.isInteger(value) || value < 1 || value > 7) {
+        return DEFAULT_CALENDAR_WEEK_DAYS;
+    }
+    return value;
+}
 export function getUserTimezone() {
     const timezone = window?.getTimezoneSetting() as string;
     if (!timezone) {

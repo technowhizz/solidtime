@@ -63,6 +63,14 @@ createInertiaApp({
             }>();
             return page.props.auth.user.timezone;
         };
+        window.getCalendarWeekDaysSetting = function () {
+            const page = usePage<{
+                auth: {
+                    user: User;
+                };
+            }>();
+            return page.props.auth.user.calendar_week_days ?? 7;
+        };
 
         app.use(plugin).use(pinia).use(ZiggyVue).use(VueQueryPlugin, { queryClient }).mount(el);
 

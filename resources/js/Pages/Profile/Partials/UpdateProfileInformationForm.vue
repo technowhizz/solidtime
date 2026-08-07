@@ -26,6 +26,10 @@ const name = ref('');
 const email = ref('');
 const timezone = ref('');
 const weekStart = ref('');
+const calendarWeekDays = ref(7);
+
+// The calendar week view renders this many columns, starting at `weekStart`.
+const calendarWeekDayOptions = [1, 2, 3, 4, 5, 6, 7];
 
 const photoBase64 = ref<string | null>(null);
 const photoPreview = ref<string | null>(null);
@@ -40,6 +44,7 @@ function seedForm(u: User) {
     email.value = u.email;
     timezone.value = u.timezone;
     weekStart.value = u.week_start;
+    calendarWeekDays.value = u.calendar_week_days ?? 7;
 }
 
 watch(
@@ -77,6 +82,9 @@ function buildPayload(): UpdateUserBody {
     if (timezone.value !== user.value.timezone) body.timezone = timezone.value;
     if (weekStart.value !== user.value.week_start) {
         body.week_start = weekStart.value as UpdateUserBody['week_start'];
+    }
+    if (calendarWeekDays.value !== user.value.calendar_week_days) {
+        body.calendar_week_days = calendarWeekDays.value;
     }
     if (photoBase64.value !== null) body.photo = photoBase64.value;
     return body;
@@ -329,6 +337,29 @@ const page = usePage<{
                     </option>
                 </select>
                 <FieldError v-if="fieldErrors.week_start">{{ fieldErrors.week_start }}</FieldError>
+            </Field>
+
+            <!-- Days shown in calendar -->
+            <Field class="col-span-6 sm:col-span-4">
+                <FieldLabel for="calendar_week_days">Days shown in calendar</FieldLabel>
+                <select
+                    id="calendar_week_days"
+                    v-model="calendarWeekDays"
+                    name="calendar_week_days"
+                    required
+                    :disabled="!isUserLoaded"
+                    class="block w-full border-input-border bg-input-background text-text-primary focus:border-input-border-active rounded-md shadow-sm">
+                    <option v-for="days in calendarWeekDayOptions" :key="days" :value="days">
+                        {{ days === 1 ? '1 day' : days + ' days' }}
+                    </option>
+                </select>
+                <p class="mt-2 text-sm text-text-secondary">
+                    How many days the calendar week view shows, counting from your start of the
+                    week. Days outside this range are only reachable in the day view.
+                </p>
+                <FieldError v-if="fieldErrors.calendar_week_days">
+                    {{ fieldErrors.calendar_week_days }}
+                </FieldError>
             </Field>
         </template>
 

@@ -707,6 +707,7 @@ const UserResource = z
         profile_photo_url: z.string(),
         timezone: z.string(),
         week_start: Weekday,
+        calendar_week_days: z.number().int(),
     })
     .passthrough();
 const UserUpdateRequest = z
@@ -716,6 +717,7 @@ const UserUpdateRequest = z
         photo: z.union([z.string(), z.null()]),
         timezone: z.string(),
         week_start: Weekday,
+        calendar_week_days: z.number().int().gte(1).lte(7),
     })
     .partial()
     .passthrough();

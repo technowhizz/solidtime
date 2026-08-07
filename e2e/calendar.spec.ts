@@ -1821,6 +1821,64 @@ test.describe('Timezone & Localization', () => {
         await expect(firstHeader).toContainText('Sun');
     });
 
+    test('calendar day count: five days shows Mon-Fri only', async ({ page, ctx }) => {
+        await updateUserProfileViaApi(ctx, { week_start: 'monday', calendar_week_days: 5 });
+        await goToCalendar(page);
+
+        const headers = page.locator('.fc-col-header-cell');
+        await expect(headers).toHaveCount(5);
+        await expect(headers.first()).toContainText('Mon');
+        await expect(headers.last()).toContainText('Fri');
+    });
+
+    test('calendar day count: prev and next move a full week, keeping the same weekdays', async ({
+        page,
+        ctx,
+    }) => {
+        await updateUserProfileViaApi(ctx, { week_start: 'monday', calendar_week_days: 5 });
+        await goToCalendar(page);
+
+        const headers = page.locator('.fc-col-header-cell');
+        const initial = await headers.first().getAttribute('data-date');
+
+        await page.getByRole('button', { name: 'Next', exact: true }).click();
+        await expect(headers).toHaveCount(5);
+        await expect(headers.first()).toContainText('Mon');
+
+        // A full week later, not five days later — otherwise the visible weekdays
+        // would drift off the week with every click.
+        const next = await headers.first().getAttribute('data-date');
+        const dayMs = 24 * 60 * 60 * 1000;
+        expect(new Date(next!).getTime() - new Date(initial!).getTime()).toBe(7 * dayMs);
+
+        await page.getByRole('button', { name: 'Previous', exact: true }).click();
+        await expect(headers.first()).toHaveAttribute('data-date', initial!);
+    });
+
+    test('calendar day count: deep link to a hidden day opens the day view', async ({
+        page,
+        ctx,
+    }) => {
+        await updateUserProfileViaApi(ctx, { week_start: 'monday', calendar_week_days: 5 });
+
+        // Saturday sits outside a Mon-Fri window, so the week view has no column for
+        // it and the link would otherwise land on a grid without the requested day.
+        const saturday = new Date();
+        saturday.setDate(saturday.getDate() + ((6 - saturday.getDay() + 7) % 7));
+        const isoSaturday = [
+            saturday.getFullYear(),
+            String(saturday.getMonth() + 1).padStart(2, '0'),
+            String(saturday.getDate()).padStart(2, '0'),
+        ].join('-');
+
+        await page.goto(`${PLAYWRIGHT_BASE_URL}/calendar?date=${isoSaturday}`);
+        await expect(page.locator('.fc')).toBeVisible({ timeout: 10000 });
+
+        const headers = page.locator('.fc-col-header-cell');
+        await expect(headers).toHaveCount(1);
+        await expect(headers.first()).toHaveAttribute('data-date', isoSaturday);
+    });
+
     test('12-hour time format shows AM/PM on slot labels', async ({ page, ctx }) => {
         await updateOrganizationSettingViaApi(ctx, { time_format: '12-hours' });
         await page.reload();

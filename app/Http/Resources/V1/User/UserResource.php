@@ -36,6 +36,8 @@ class UserResource extends BaseResource
             'timezone' => $this->resource->timezone,
             /** @var Weekday $week_start Starting day of the week */
             'week_start' => $this->resource->week_start->value,
+            /** @var int $calendar_week_days Number of days shown in the calendar week view (1-7) */
+            'calendar_week_days' => $this->resource->calendar_week_days,
         ];
     }
 }

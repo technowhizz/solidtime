@@ -2,6 +2,7 @@ declare global {
     interface Window {
         getWeekStartSetting: () => string;
         getTimezoneSetting: () => string;
+        getCalendarWeekDaysSetting: () => number;
     }
 }
 

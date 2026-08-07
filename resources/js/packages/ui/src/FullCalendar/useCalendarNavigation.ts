@@ -1,22 +1,36 @@
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { Dayjs } from 'dayjs';
 import { getLocalizedDayJs } from '../utils/time';
-import { getWeekStartDayNumber } from '../utils/settings';
+import { getCalendarWeekDays, getWeekStartDayNumber } from '../utils/settings';
 
 export function useCalendarNavigation(callbacks: {
     onDatesChange: (payload: { start: Dayjs; end: Dayjs }) => void;
     scrollToCurrentTime: () => void;
     initialDate?: Dayjs | null;
 }) {
-    const activeView = ref('timeGridWeek');
-    const currentDate = ref(callbacks.initialDate ?? getLocalizedDayJs());
-
     function getFirstDay(): number {
         return getWeekStartDayNumber();
     }
 
+    /**
+     * True when the week view would not render a column for this date, which happens
+     * once the user shows fewer than 7 days. Deep links (?date=) can point at any day
+     * of the week, so they need to fall back to the day view.
+     */
+    function isHiddenInWeekView(date: Dayjs): boolean {
+        const offset = (date.day() - getFirstDay() + 7) % 7;
+        return offset >= getCalendarWeekDays();
+    }
+
+    const activeView = ref(
+        callbacks.initialDate && isHiddenInWeekView(callbacks.initialDate)
+            ? 'timeGridDay'
+            : 'timeGridWeek'
+    );
+    const currentDate = ref(callbacks.initialDate ?? getLocalizedDayJs());
+
     const viewDays = computed<Dayjs[]>(() => {
-        const numDays = activeView.value === 'timeGridWeek' ? 7 : 1;
+        const numDays = activeView.value === 'timeGridWeek' ? getCalendarWeekDays() : 1;
 
         if (numDays === 1) {
             return [currentDate.value.startOf('day')];
@@ -62,6 +76,14 @@ export function useCalendarNavigation(callbacks: {
         const end = days[days.length - 1]!.add(1, 'day');
         callbacks.onDatesChange({ start, end });
     }
+
+    // The rendered window can change without a navigation click, because the day count
+    // is a user preference read reactively off the shared page props. Without this the
+    // grid would resize while the fetched range stayed put, so the loaded time entries
+    // would no longer line up with the visible columns.
+    watch(viewDays, () => {
+        emitDatesChange();
+    });
 
     function handlePrev() {
         if (activeView.value === 'timeGridWeek') {

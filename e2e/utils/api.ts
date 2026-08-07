@@ -826,22 +826,26 @@ export async function getCurrentUserViaApi(ctx: TestContext) {
         email: string;
         timezone: string;
         week_start: string;
+        calendar_week_days: number;
     };
 }
 
 export async function updateUserProfileViaApi(
     ctx: TestContext,
-    settings: { timezone?: string; week_start?: string }
+    settings: { timezone?: string; week_start?: string; calendar_week_days?: number }
 ) {
     const user = await getCurrentUserViaApi(ctx);
 
     // Only send the fields under test; the endpoint leaves omitted fields untouched.
-    const data: Record<string, string> = {};
+    const data: Record<string, string | number> = {};
     if (settings.timezone !== undefined) {
         data.timezone = settings.timezone;
     }
     if (settings.week_start !== undefined) {
         data.week_start = settings.week_start;
+    }
+    if (settings.calendar_week_days !== undefined) {
+        data.calendar_week_days = settings.calendar_week_days;
     }
 
     const response = await ctx.request.put(`${PLAYWRIGHT_BASE_URL}/api/v1/users/${user.id}`, {

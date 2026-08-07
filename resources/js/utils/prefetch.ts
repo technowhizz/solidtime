@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/vue-query';
 import { api } from '@/packages/api/src';
 import { getCurrentOrganizationId, getCurrentMembershipId } from '@/utils/useUser';
 import { canViewClients, canViewMembers } from '@/utils/permissions';
+import { getCalendarWeekDays } from '@/packages/ui/src/utils/settings';
 import {
     getInitialWeekRange,
     getExpandedCalendarDateRange,
@@ -247,7 +248,7 @@ function prefetchCalendarTimeEntries(queryClient: QueryClient) {
     const memberId = getCurrentMembershipId();
     if (!organizationId) return;
 
-    const { start, end } = getInitialWeekRange();
+    const { start, end } = getInitialWeekRange(getCalendarWeekDays());
     const { start: formattedStart, end: formattedEnd } = getExpandedCalendarDateRange(start, end);
 
     queryClient.prefetchQuery({

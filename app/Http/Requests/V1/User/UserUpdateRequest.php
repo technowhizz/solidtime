@@ -58,6 +58,11 @@ class UserUpdateRequest extends BaseFormRequest
             'week_start' => [
                 Rule::enum(Weekday::class),
             ],
+            'calendar_week_days' => [
+                'integer',
+                'min:1',
+                'max:7',
+            ],
         ];
     }
 
@@ -79,6 +84,11 @@ class UserUpdateRequest extends BaseFormRequest
     public function getWeekStart(): ?Weekday
     {
         return $this->has('week_start') ? Weekday::from($this->input('week_start')) : null;
+    }
+
+    public function getCalendarWeekDays(): ?int
+    {
+        return $this->has('calendar_week_days') ? (int) $this->input('calendar_week_days') : null;
     }
 
     public function hasPhotoKey(): bool

@@ -30,8 +30,11 @@ export function getExpandedCalendarDateRange(
 /**
  * Get the initial week view date range based on user's week start preference.
  * Matches FullCalendar's timeGridWeek initial view.
+ *
+ * `days` defaults to a full week. The calendar passes the user's day-count preference;
+ * the timesheet always wants 7 and leaves it alone.
  */
-export function getInitialWeekRange(): { start: Dayjs; end: Dayjs } {
+export function getInitialWeekRange(days: number = 7): { start: Dayjs; end: Dayjs } {
     const dayjs = getDayJsInstance();
     const firstDay = getWeekStartDayNumber();
 
@@ -39,7 +42,7 @@ export function getInitialWeekRange(): { start: Dayjs; end: Dayjs } {
     const currentDayOfWeek = now.day();
     const daysFromWeekStart = (currentDayOfWeek - firstDay + 7) % 7;
     const start = now.subtract(daysFromWeekStart, 'day').startOf('day');
-    const end = start.add(7, 'day');
+    const end = start.add(days, 'day');
 
     return { start, end };
 }
