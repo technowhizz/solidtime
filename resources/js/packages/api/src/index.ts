@@ -113,6 +113,16 @@ export type ApiTokenIndexResponse = ZodiosResponseByAlias<SolidTimeApi, 'getApiT
 export type CreateApiTokenBody = ZodiosBodyByAlias<SolidTimeApi, 'createApiToken'>;
 export type ApiToken = ApiTokenIndexResponse['data'][0];
 
+export type GoogleCalendarConnection = ZodiosResponseByAlias<
+    SolidTimeApi,
+    'getGoogleCalendarConnection'
+>['data'];
+
+export type GoogleCalendarEvent = ZodiosResponseByAlias<
+    SolidTimeApi,
+    'getGoogleCalendarEvents'
+>['data'][0];
+
 export type DetailedInvoiceResponse = ZodiosResponseByAlias<SolidTimeApi, 'getInvoice'>;
 
 export type DetailedInvoice = DetailedInvoiceResponse['data'];

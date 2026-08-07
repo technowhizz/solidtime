@@ -19,6 +19,7 @@ solidtime is a modern open-source time tracking application for Freelancers and 
  - Multiple organizations: Create and manage multiple organizations with one account
  - Roles and permissions: Create and manage organizations
  - Import: Import your time tracking data from other time tracking applications (Supported: Toggl, Clockify, Timeentry CSV)
+ - Google Calendar: Show your calendar events next to your time entries and copy an event into a time entry with one click
 
 ## Self Hosting
 
@@ -27,6 +28,25 @@ If you are looking into self-hosting solidtime, you can find the guides [here](h
 We also have an examples repository [here](https://github.com/solidtime-io/self-hosting-examples)
 
 If you do not want to self-host solidtime or try it out you can sign up for [solidtime cloud](https://www.solidtime.io/)
+
+### Google Calendar integration (optional)
+
+The Google Calendar integration is disabled until you provide an OAuth client. Without one, nothing
+about it is shown to your users.
+
+1. In the [Google Cloud Console](https://console.cloud.google.com/), create a project and enable the
+   **Google Calendar API**.
+2. Create an OAuth client of type **Web application** and add
+   `https://<your-host>/integrations/google-calendar/callback` as an authorised redirect URI.
+3. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in your `.env`.
+
+Users then connect their own Google account under *Profile Settings*. solidtime requests read-only
+access to calendar events plus the account's email address, and stores only the OAuth tokens
+(encrypted) - event titles and times are fetched from Google per request and never persisted.
+
+Note that `calendar.events.readonly` is a *sensitive* scope. Google requires app verification for
+published apps, with exemptions for testing, internal use within a Google Workspace organization,
+and apps under 100 users.
 
 ## Issues & Feature Requests
 

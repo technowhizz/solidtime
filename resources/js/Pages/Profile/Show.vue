@@ -9,6 +9,8 @@ import UpdateProfileInformationForm from '@/Pages/Profile/Partials/UpdateProfile
 import type { Session } from '@/types/jetstream';
 import ApiTokensForm from '@/Pages/Profile/Partials/ApiTokensForm.vue';
 import ThemeForm from '@/Pages/Profile/Partials/ThemeForm.vue';
+import GoogleCalendarForm from '@/Pages/Profile/Partials/GoogleCalendarForm.vue';
+import { isGoogleCalendarEnabled } from '@/utils/googleCalendar';
 
 defineProps<{
     confirmsTwoFactorAuthentication: boolean;
@@ -52,6 +54,12 @@ defineProps<{
 
                 <LogoutOtherBrowserSessionsForm :sessions="sessions" class="mt-10 sm:mt-0" />
                 <SectionBorder />
+
+                <template v-if="isGoogleCalendarEnabled()">
+                    <GoogleCalendarForm />
+
+                    <SectionBorder />
+                </template>
 
                 <ApiTokensForm></ApiTokensForm>
 

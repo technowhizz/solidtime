@@ -38,6 +38,25 @@ const ClientUpdateRequest = z
     .object({ name: z.string().min(1).max(255), is_archived: z.boolean().optional() })
     .passthrough();
 const DestroyWithPasswordRequest = z.object({ password: z.string() }).passthrough();
+const GoogleCalendarConnectionResource = z
+    .object({
+        is_connected: z.boolean(),
+        email: z.union([z.string(), z.null()]),
+        requires_reauthentication: z.boolean(),
+        connected_at: z.union([z.string(), z.null()]),
+    })
+    .passthrough();
+const GoogleCalendarEventResource = z
+    .object({
+        id: z.string(),
+        title: z.string(),
+        start: z.string(),
+        end: z.string(),
+        is_all_day: z.boolean(),
+        html_link: z.union([z.string(), z.null()]),
+    })
+    .passthrough();
+const GoogleCalendarEventCollection = z.array(GoogleCalendarEventResource);
 const ImportRequest = z.object({ type: z.string(), data: z.string() }).passthrough();
 const InvitationResource = z
     .object({ id: z.string(), email: z.string(), role: z.string() })
@@ -739,6 +758,9 @@ export const schemas = {
     ClientResource,
     ClientStoreRequest,
     ClientUpdateRequest,
+    GoogleCalendarConnectionResource,
+    GoogleCalendarEventResource,
+    GoogleCalendarEventCollection,
     ImportRequest,
     InvitationResource,
     InvitationStoreRequest,
@@ -4968,6 +4990,94 @@ Please note that the access token is only shown in this response and cannot be r
                 status: 404,
                 description: `Not found`,
                 schema: z.object({ message: z.string() }).passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'get',
+        path: '/v1/users/me/google-calendar',
+        alias: 'getGoogleCalendarConnection',
+        description: `This endpoint is independent of the organization. A user without a connection gets
+&#x60;is_connected&#x60; false instead of a 404.`,
+        requestFormat: 'json',
+        response: z.object({ data: GoogleCalendarConnectionResource }).passthrough(),
+        errors: [
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'delete',
+        path: '/v1/users/me/google-calendar',
+        alias: 'deleteGoogleCalendarConnection',
+        description: `The access is revoked at Google and the stored credentials are deleted.`,
+        requestFormat: 'json',
+        response: z.void(),
+        errors: [
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'get',
+        path: '/v1/users/me/google-calendar/events',
+        alias: 'getGoogleCalendarEvents',
+        description: `Returns the events of the primary calendar that overlap the given range. Event content is
+never stored by solidtime, it is fetched from Google per request.`,
+        requestFormat: 'json',
+        parameters: [
+            {
+                name: 'start',
+                type: 'Query',
+                schema: z.string(),
+            },
+            {
+                name: 'end',
+                type: 'Query',
+                schema: z.string(),
+            },
+        ],
+        response: z.object({ data: GoogleCalendarEventCollection }).passthrough(),
+        errors: [
+            {
+                status: 400,
+                description: `API exception`,
+                schema: z
+                    .object({ error: z.boolean(), key: z.string(), message: z.string() })
+                    .passthrough(),
+            },
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 422,
+                description: `Validation error`,
+                schema: z
+                    .object({ message: z.string(), errors: z.record(z.array(z.string())) })
+                    .passthrough(),
             },
         ],
     },

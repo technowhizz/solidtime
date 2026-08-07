@@ -729,3 +729,62 @@ test('test that logout other browser sessions works with correct password', asyn
         ),
     ]);
 });
+
+async function stubGoogleCalendarConnection(page: Page, connected: boolean) {
+    await page.route('**/api/v1/users/me/google-calendar', async (route) => {
+        if (route.request().method() === 'DELETE') {
+            await route.fulfill({ status: 204, body: '' });
+            return;
+        }
+        await route.fulfill({
+            json: {
+                data: {
+                    is_connected: connected,
+                    email: connected ? 'calendar-owner@example.com' : null,
+                    requires_reauthentication: false,
+                    connected_at: connected ? '2026-08-01T09:00:00Z' : null,
+                },
+            },
+        });
+    });
+}
+
+test.describe('Google Calendar card', () => {
+    test('offers connecting when no Google account is linked', async ({ page }) => {
+        await stubGoogleCalendarConnection(page, false);
+        await goToProfilePage(page);
+
+        await expect(page.getByRole('heading', { name: 'Google Calendar' })).toBeVisible();
+
+        const connectLink = page.getByTestId('google_calendar_connect');
+        await expect(connectLink).toBeVisible();
+        await expect(connectLink).toHaveAttribute(
+            'href',
+            /\/integrations\/google-calendar\/connect$/
+        );
+        await expect(page.getByTestId('google_calendar_disconnect')).toHaveCount(0);
+    });
+
+    test('shows the connected account and disconnects it', async ({ page }) => {
+        await stubGoogleCalendarConnection(page, true);
+        await goToProfilePage(page);
+
+        await expect(page.getByText('calendar-owner@example.com')).toBeVisible();
+        await expect(page.getByTestId('google_calendar_connect')).toHaveCount(0);
+
+        await page.getByTestId('google_calendar_disconnect').click();
+        await expect(page.getByRole('dialog')).toBeVisible();
+
+        await Promise.all([
+            page
+                .getByRole('dialog')
+                .getByRole('button', { name: 'Disconnect', exact: true })
+                .click(),
+            page.waitForRequest(
+                (request) =>
+                    request.url().includes('/users/me/google-calendar') &&
+                    request.method() === 'DELETE'
+            ),
+        ]);
+    });
+});

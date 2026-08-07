@@ -13,6 +13,12 @@ import {
 } from '@/packages/api/src';
 import { TimeEntryCalendar } from '@/packages/ui/src';
 import type { ActivityPeriod } from '@/packages/ui/src/FullCalendar/activityTypes';
+import type { ExternalCalendarEvent } from '@/packages/ui/src/FullCalendar/externalCalendarTypes';
+import { isGoogleCalendarEnabled } from '@/utils/googleCalendar';
+import {
+    useGoogleCalendarConnectionQuery,
+    useGoogleCalendarEventsQuery,
+} from '@/utils/useGoogleCalendarQuery';
 import { isAllowedToPerformPremiumAction } from '@/utils/billing';
 import { useTagsStore } from '@/utils/useTags';
 import { useProjectsQuery } from '@/utils/useProjectsQuery';
@@ -96,6 +102,28 @@ async function createClient(body: CreateClientBody): Promise<Client | undefined>
     return await useClientsStore().createClient(body);
 }
 
+const googleCalendarEnabled = isGoogleCalendarEnabled();
+const { data: googleCalendarConnection } = useGoogleCalendarConnectionQuery(googleCalendarEnabled);
+const isGoogleCalendarConnected = computed(
+    () => googleCalendarConnection.value?.is_connected === true
+);
+const { data: googleCalendarEvents } = useGoogleCalendarEventsQuery(
+    calendarStart,
+    calendarEnd,
+    isGoogleCalendarConnected
+);
+
+// packages/ui stays provider agnostic, so the Google specific shape is mapped here
+const externalCalendarEvents = computed<ExternalCalendarEvent[]>(() =>
+    (googleCalendarEvents.value ?? []).map((event) => ({
+        id: event.id,
+        title: event.title,
+        start: event.start,
+        end: event.end,
+        isAllDay: event.is_all_day,
+    }))
+);
+
 const { projects } = useProjectsQuery();
 const { tasks } = useTasksQuery();
 const { clients } = useClientsQuery();
@@ -140,6 +168,7 @@ function onRefresh() {
             :create-project="createProject"
             :create-tag="createTag"
             :activity-periods="testActivityPeriods"
+            :external-calendar-events="externalCalendarEvents"
             @dates-change="onDatesChange"
             @refresh="onRefresh" />
     </AppLayout>
