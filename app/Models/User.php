@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -45,6 +46,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property int $calendar_week_days
  * @property string|null $profile_photo_path
  * @property-read Organization|null $currentOrganization
+ * @property-read GoogleCalendarConnection|null $googleCalendarConnection
  * @property-read string $profile_photo_url
  * @property-read Collection<int, Token> $tokens
  * @property Carbon|null $created_at
@@ -222,6 +224,14 @@ class User extends Authenticatable implements AuditableContract, FilamentUser, M
     public function accessTokens(): HasMany
     {
         return $this->hasMany(Token::class);
+    }
+
+    /**
+     * @return HasOne<GoogleCalendarConnection, $this>
+     */
+    public function googleCalendarConnection(): HasOne
+    {
+        return $this->hasOne(GoogleCalendarConnection::class, 'user_id');
     }
 
     /**

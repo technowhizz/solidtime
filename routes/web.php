@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Web\DashboardController;
+use App\Http\Controllers\Web\GoogleCalendarConnectionController;
 use App\Http\Controllers\Web\HomeController;
 use App\Http\Controllers\Web\OrganizationController;
 use App\Http\Controllers\Web\OrganizationInvitationController;
@@ -104,6 +105,12 @@ Route::middleware([
         return to_route('organizations.show', [$organizationId]);
     })->name('teams.show');
     Route::get('/user/profile', [UserProfileController::class, 'show'])->name('profile.show');
+
+    // Note: the OAuth state round-trip needs the session guard, so these live inside the web group
+    Route::get('/integrations/google-calendar/connect', [GoogleCalendarConnectionController::class, 'connect'])
+        ->name('integrations.google-calendar.connect');
+    Route::get('/integrations/google-calendar/callback', [GoogleCalendarConnectionController::class, 'callback'])
+        ->name('integrations.google-calendar.callback');
     Route::delete('/user/other-browser-sessions', [OtherBrowserSessionsController::class, 'destroy'])
         ->name('other-browser-sessions.destroy');
 });

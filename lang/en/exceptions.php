@@ -8,6 +8,9 @@ use App\Exceptions\Api\ChangingRoleOfPlaceholderIsNotAllowed;
 use App\Exceptions\Api\ChangingRoleToPlaceholderIsNotAllowed;
 use App\Exceptions\Api\EntityStillInUseApiException;
 use App\Exceptions\Api\FeatureIsNotAvailableInFreePlanApiException;
+use App\Exceptions\Api\GoogleCalendarNotConnectedApiException;
+use App\Exceptions\Api\GoogleCalendarReauthenticationRequiredApiException;
+use App\Exceptions\Api\GoogleCalendarRequestFailedApiException;
 use App\Exceptions\Api\InactiveUserCanNotBeUsedApiException;
 use App\Exceptions\Api\InvitationForTheEmailAlreadyExistsApiException;
 use App\Exceptions\Api\OnlyOwnerCanChangeOwnership;
@@ -51,6 +54,9 @@ return [
         InvitationForTheEmailAlreadyExistsApiException::KEY => 'The email has already been invited to the organization. Please wait for the user to accept the invitation or resend the invitation email.',
         OverlappingTimeEntryApiException::KEY => 'Overlapping time entries are not allowed.',
         UserResendEmailVerificationNoPendingEmailApiException::KEY => 'Resend email not possible, no pending email.',
+        GoogleCalendarNotConnectedApiException::KEY => 'No Google Calendar account is connected.',
+        GoogleCalendarReauthenticationRequiredApiException::KEY => 'The connection to Google Calendar has expired, please connect your Google account again.',
+        GoogleCalendarRequestFailedApiException::KEY => 'The request to Google Calendar failed, please try again later.',
     ],
     'unknown_error_in_admin_panel' => 'An unknown error occurred. Please check the logs.',
 ];

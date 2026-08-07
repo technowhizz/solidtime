@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\ChartController;
 use App\Http\Controllers\Api\V1\ClientController;
 use App\Http\Controllers\Api\V1\CurrencyController;
 use App\Http\Controllers\Api\V1\ExportController;
+use App\Http\Controllers\Api\V1\GoogleCalendarController;
 use App\Http\Controllers\Api\V1\ImportController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\MemberController;
@@ -75,6 +76,13 @@ Route::prefix('v1')->name('v1.')->group(static function (): void {
             Route::post('/users/me/api-tokens', [ApiTokenController::class, 'store'])->name('store');
             Route::post('/users/me/api-tokens/{apiToken}/revoke', [ApiTokenController::class, 'revoke'])->name('revoke');
             Route::delete('/users/me/api-tokens/{apiToken}', [ApiTokenController::class, 'destroy'])->name('destroy');
+        });
+
+        // Google Calendar routes, user scoped and independent of the organization
+        Route::name('users.google-calendar.')->group(static function (): void {
+            Route::get('/users/me/google-calendar', [GoogleCalendarController::class, 'show'])->name('show');
+            Route::delete('/users/me/google-calendar', [GoogleCalendarController::class, 'destroy'])->name('destroy');
+            Route::get('/users/me/google-calendar/events', [GoogleCalendarController::class, 'events'])->name('events');
         });
 
         // User Member routes

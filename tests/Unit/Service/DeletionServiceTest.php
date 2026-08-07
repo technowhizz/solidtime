@@ -8,6 +8,7 @@ use App\Enums\Role;
 use App\Events\BeforeOrganizationDeletion;
 use App\Exceptions\Api\CanNotDeleteUserWhoIsOwnerOfOrganizationWithMultipleMembers;
 use App\Models\Client;
+use App\Models\GoogleCalendarConnection;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Project;
@@ -326,6 +327,26 @@ class DeletionServiceTest extends TestCaseWithDatabase
             && $log->context['id'] === $user->getKey(),
             1
         );
+    }
+
+    public function test_delete_user_deletes_the_google_calendar_connection_of_the_user(): void
+    {
+        // Arrange
+        $user = User::factory()->withPersonalOrganization()->create();
+        $otherUser = User::factory()->withPersonalOrganization()->create();
+        $connection = GoogleCalendarConnection::factory()->forUser($user)->create();
+        $otherConnection = GoogleCalendarConnection::factory()->forUser($otherUser)->create();
+
+        // Act
+        $this->deletionService->deleteUser($user);
+
+        // Assert
+        $this->assertDatabaseMissing(GoogleCalendarConnection::class, [
+            'id' => $connection->getKey(),
+        ]);
+        $this->assertDatabaseHas(GoogleCalendarConnection::class, [
+            'id' => $otherConnection->getKey(),
+        ]);
     }
 
     public function test_delete_user_deletes_owned_organizations_that_have_only_one_member_and_makes_makes_the_user_placeholder_in_not_owned_organizations(): void

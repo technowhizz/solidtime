@@ -171,6 +171,7 @@ class DeletionService
 
         $user->accessTokens()->delete();
         $user->authCodes()->delete();
+        $user->googleCalendarConnection()->delete();
 
         // Note: Since the deletion of the profile photo is not reversible via a database rollback this needs to be done last
         $this->userService->deleteProfilePhoto($user);

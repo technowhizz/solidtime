@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Service\BillingContract;
+use App\Service\GoogleCalendar\GoogleCalendarConfig;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Nwidart\Modules\Facades\Module;
@@ -52,6 +53,7 @@ class HandleInertiaRequests extends Middleware
             'has_billing_extension' => $hasBilling,
             'has_invoicing_extension' => $hasInvoicing,
             'has_services_extension' => $hasServices,
+            'google_calendar_enabled' => app(GoogleCalendarConfig::class)->isConfigured(),
             'billing' => $currentOrganization !== null ? [
                 'has_subscription' => $billing->hasSubscription($currentOrganization),
                 'has_trial' => $billing->hasTrial($currentOrganization),
