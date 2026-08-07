@@ -47,6 +47,20 @@ async function openContextMenu(page: Page, description: string) {
     await expect(page.getByRole('menu')).toBeVisible();
 }
 
+/**
+ * Records every time-entry PUT the page fires from the moment it is called, so
+ * a test can assert that a cancelled drag saved nothing.
+ */
+function trackTimeEntryPuts(page: Page): string[] {
+    const urls: string[] = [];
+    page.on('request', (r) => {
+        if (r.method() === 'PUT' && r.url().includes('/time-entries/')) {
+            urls.push(r.url());
+        }
+    });
+    return urls;
+}
+
 function todayAt(hour: number, minute: number = 0): string {
     const now = new Date();
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0, 0);
@@ -1023,6 +1037,47 @@ test.describe('Drag-to-Move Events', () => {
             .split('T')[0];
         expect(newStart.toISOString().split('T')[0]).toBe(yesterdayStr);
     });
+
+    test('escape during drag cancels the move and leaves the entry untouched', async ({
+        page,
+        ctx,
+    }) => {
+        const start = todayAt(10);
+        const end = todayAt(11);
+        await createTimeEntryWithTimestampsViaApi(ctx, {
+            description: 'Drag cancel test',
+            start,
+            end,
+        });
+        await goToCalendar(page);
+        await scrollCalendarToTime(page, '09:00:00');
+        const event = page.locator('.fc-event').filter({ hasText: 'Drag cancel test' }).first();
+        await expect(event).toBeVisible();
+
+        const slotHeight = await getSlotHeight(page);
+        const eventBox = await event.boundingBox();
+
+        const putRequests = trackTimeEntryPuts(page);
+
+        await event.hover();
+        await page.mouse.down();
+        await page.mouse.move(eventBox!.x + eventBox!.width / 2, eventBox!.y + slotHeight * 8, {
+            steps: 15,
+        });
+        // Escape while the button is still held
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+        await page.waitForTimeout(500);
+
+        // Nothing was saved and no edit modal opened
+        expect(putRequests).toHaveLength(0);
+        await expect(page.getByRole('dialog')).not.toBeVisible();
+
+        // The entry is still rendered where it started
+        const afterBox = await event.boundingBox();
+        expect(Math.abs(afterBox!.y - eventBox!.y)).toBeLessThan(2);
+        expect(Math.abs(afterBox!.height - eventBox!.height)).toBeLessThan(2);
+    });
 });
 
 // =============================================
@@ -1698,6 +1753,52 @@ test.describe('Resize Events', () => {
             }
         }
     });
+
+    test('escape during resize cancels and leaves the duration unchanged', async ({
+        page,
+        ctx,
+    }) => {
+        const start = todayAt(10);
+        const end = todayAt(11);
+        await createTimeEntryWithTimestampsViaApi(ctx, {
+            description: 'Resize cancel test',
+            start,
+            end,
+        });
+        await goToCalendar(page);
+        await scrollCalendarToTime(page, '09:00:00');
+        const event = page.locator('.fc-event').filter({ hasText: 'Resize cancel test' }).first();
+        await expect(event).toBeVisible();
+
+        const slotHeight = await getSlotHeight(page);
+        const eventBox = await event.boundingBox();
+        const bottomY = eventBox!.y + eventBox!.height;
+        const centerX = eventBox!.x + eventBox!.width / 2;
+
+        const putRequests = trackTimeEntryPuts(page);
+
+        await page.mouse.move(centerX, bottomY - 3);
+        await page.waitForTimeout(100);
+        await page.mouse.down();
+        await page.mouse.move(centerX, bottomY + slotHeight * 4, { steps: 15 });
+        // Escape while the button is still held
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+        await page.waitForTimeout(500);
+
+        expect(putRequests).toHaveLength(0);
+
+        // The entry keeps its original geometry
+        const afterBox = await event.boundingBox();
+        expect(Math.abs(afterBox!.height - eventBox!.height)).toBeLessThan(2);
+        expect(Math.abs(afterBox!.y - eventBox!.y)).toBeLessThan(2);
+
+        // The global resize-cursor override is released
+        const stillResizing = await page.evaluate(() =>
+            document.body.classList.contains('fc-resizing-active')
+        );
+        expect(stillResizing).toBe(false);
+    });
 });
 
 // =============================================
@@ -1795,6 +1896,38 @@ test.describe('Click-Drag Selection to Create', () => {
         // Start date should be today, end date should be tomorrow
         await expect(dialog.getByText(todayStr)).toBeVisible();
         await expect(dialog.getByText(tomorrowStr)).toBeVisible();
+    });
+
+    test('escape during the drag cancels the create and no modal opens', async ({ page }) => {
+        await goToCalendar(page);
+        await expect(page.locator('.fc')).toBeVisible();
+        await scrollCalendarToTime(page, '09:00:00');
+
+        const startSlot = page.locator('.fc-timegrid-slot-lane[data-time="10:00:00"]').first();
+        await expect(startSlot).toBeVisible();
+        const startBox = await startSlot.boundingBox();
+        const endSlot = page.locator('.fc-timegrid-slot-lane[data-time="11:00:00"]').first();
+        const endBox = await endSlot.boundingBox();
+
+        const startX = startBox!.x + startBox!.width / 2;
+        await page.mouse.move(startX, startBox!.y + 2);
+        await page.mouse.down();
+        await page.mouse.move(endBox!.x + endBox!.width / 2, endBox!.y + 2, { steps: 10 });
+
+        // Escape before the button is released — the point of this feature
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+        await page.waitForTimeout(500);
+
+        await expect(page.getByRole('dialog')).not.toBeVisible();
+
+        // The calendar is not left in a stuck state: a fresh drag still works
+        await page.mouse.move(startX, startBox!.y + 2);
+        await page.mouse.down();
+        await page.mouse.move(endBox!.x + endBox!.width / 2, endBox!.y + 2, { steps: 10 });
+        await page.mouse.up();
+
+        await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
     });
 });
 

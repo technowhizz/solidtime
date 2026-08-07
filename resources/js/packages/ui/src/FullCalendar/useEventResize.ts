@@ -5,6 +5,7 @@ import { getDayJsInstance, getLocalizedDayJs, getLocalizedDayJsFromMinutes } fro
 import type { CalendarSettings } from './calendarSettings';
 import type { CalendarEvent, DayEvent } from './calendarTypes';
 import { SLOT_HEIGHT } from './calendarTypes';
+import { createEscapeCancel } from './escapeCancel';
 
 function snapTo(value: number, step: number): number {
     return Math.round(value / step) * step;
@@ -35,6 +36,37 @@ export function useEventResize(params: {
     let resizeOriginalTop = 0;
     let resizeOriginalHeight = 0;
     let resizeOriginalDayStr = '';
+
+    const escapeCancel = createEscapeCancel(() => cancelResize());
+
+    function addResizeListeners() {
+        document.body.classList.add('fc-resizing-active');
+        document.addEventListener('pointermove', onResizePointerMove);
+        document.addEventListener('pointerup', onResizePointerUp);
+        escapeCancel.listen();
+    }
+
+    function removeResizeListeners() {
+        document.body.classList.remove('fc-resizing-active');
+        document.removeEventListener('pointermove', onResizePointerMove);
+        document.removeEventListener('pointerup', onResizePointerUp);
+        escapeCancel.stop();
+    }
+
+    /**
+     * Aborts an in-flight resize: the entry snaps back to its stored geometry
+     * and no update request is sent. Detaching the listeners makes the cancel
+     * terminal, and also drops the `fc-resizing-active` cursor override.
+     */
+    function cancelResize() {
+        removeResizeListeners();
+
+        isResizing.value = false;
+        resizeCurrentTop.value = resizeOriginalTop;
+        resizeCurrentHeight.value = resizeOriginalHeight;
+        resizeOriginalEvent = null;
+        resetResizeState();
+    }
 
     function getGridConstants() {
         const s = params.calendarSettings.value;
@@ -125,9 +157,7 @@ export function useEventResize(params: {
         resizeOriginalDayStr = dayStr;
         resizeCurrentDay.value = dayStr;
 
-        document.body.classList.add('fc-resizing-active');
-        document.addEventListener('pointermove', onResizePointerMove);
-        document.addEventListener('pointerup', onResizePointerUp);
+        addResizeListeners();
     }
 
     function onResizePointerMove(e: PointerEvent) {
@@ -277,9 +307,7 @@ export function useEventResize(params: {
     }
 
     async function onResizePointerUp(e: PointerEvent) {
-        document.removeEventListener('pointermove', onResizePointerMove);
-        document.removeEventListener('pointerup', onResizePointerUp);
-        document.body.classList.remove('fc-resizing-active');
+        removeResizeListeners();
 
         const times = computeResizedTimes(e.clientY);
         isResizing.value = false;
@@ -338,9 +366,7 @@ export function useEventResize(params: {
     }
 
     onUnmounted(() => {
-        document.removeEventListener('pointermove', onResizePointerMove);
-        document.removeEventListener('pointerup', onResizePointerUp);
-        document.body.classList.remove('fc-resizing-active');
+        removeResizeListeners();
     });
 
     return {

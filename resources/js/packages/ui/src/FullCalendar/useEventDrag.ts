@@ -5,6 +5,7 @@ import { getLocalizedDayJs, getLocalizedDayJsFromMinutes } from '../utils/time';
 import type { CalendarSettings } from './calendarSettings';
 import type { CalendarEvent, DayEvent } from './calendarTypes';
 import { SLOT_HEIGHT, DRAG_THRESHOLD } from './calendarTypes';
+import { createEscapeCancel } from './escapeCancel';
 
 export function useEventDrag(params: {
     calendarSettings: Ref<CalendarSettings>;
@@ -35,6 +36,40 @@ export function useEventDrag(params: {
     let dragFullDurationMinutes = 0;
     let dragEventStartOffsetMinutes = 0;
     let hasMoved = false;
+
+    const escapeCancel = createEscapeCancel(() => cancelDrag());
+
+    function addDragListeners() {
+        document.addEventListener('pointermove', onDragPointerMove);
+        document.addEventListener('pointerup', onDragPointerUp);
+        escapeCancel.listen();
+    }
+
+    function removeDragListeners() {
+        document.removeEventListener('pointermove', onDragPointerMove);
+        document.removeEventListener('pointerup', onDragPointerUp);
+        escapeCancel.stop();
+    }
+
+    /**
+     * Aborts an in-flight move: the preview is discarded and the entry keeps
+     * its stored times — no optimistic override and no update request.
+     *
+     * This also suppresses the click-to-edit path in `onDragPointerUp`, so
+     * cancelling before the drag threshold is passed opens no modal either.
+     * Detaching the listeners makes the cancel terminal.
+     */
+    function cancelDrag() {
+        removeDragListeners();
+
+        isDragging.value = false;
+        dragEventId.value = null;
+        dragOriginalDayStr.value = null;
+        dragCurrentDay.value = null;
+
+        dragOriginalEvent = null;
+        hasMoved = false;
+    }
 
     function onEventPointerDown(e: PointerEvent, ev: CalendarEvent, dayEvent: DayEvent) {
         if (e.button !== 0) return;
@@ -80,11 +115,11 @@ export function useEventDrag(params: {
             params.pixelsToMinutesFromMidnight(gridY) -
             params.pixelsToMinutesFromMidnight(dayEvent.top);
 
-        document.addEventListener('pointermove', onDragPointerMove);
-        document.addEventListener('pointerup', onDragPointerUp);
+        addDragListeners();
     }
 
     function onDragPointerMove(e: PointerEvent) {
+        if (!dragOriginalEvent) return;
         const dx = e.clientX - dragStartClientX;
         const dy = e.clientY - dragStartClientY;
 
@@ -115,8 +150,7 @@ export function useEventDrag(params: {
     }
 
     async function onDragPointerUp(e: PointerEvent) {
-        document.removeEventListener('pointermove', onDragPointerMove);
-        document.removeEventListener('pointerup', onDragPointerUp);
+        removeDragListeners();
 
         if (!hasMoved) {
             isDragging.value = false;
@@ -276,8 +310,7 @@ export function useEventDrag(params: {
     });
 
     onUnmounted(() => {
-        document.removeEventListener('pointermove', onDragPointerMove);
-        document.removeEventListener('pointerup', onDragPointerUp);
+        removeDragListeners();
     });
 
     return {

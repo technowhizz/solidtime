@@ -4,6 +4,7 @@ import { getLocalizedDayJsFromMinutes } from '../utils/time';
 
 import type { CalendarSettings } from './calendarSettings';
 import { SLOT_HEIGHT } from './calendarTypes';
+import { createEscapeCancel } from './escapeCancel';
 
 export function useSlotSelection(params: {
     calendarSettings: Ref<CalendarSettings>;
@@ -25,6 +26,42 @@ export function useSlotSelection(params: {
     // Non-reactive state
     let selectionStartGridY = 0;
     let selectionStartDay = '';
+
+    const escapeCancel = createEscapeCancel(() => cancelSelection());
+
+    function addSelectionListeners() {
+        document.addEventListener('pointermove', onSelectionPointerMove);
+        document.addEventListener('pointerup', onSelectionPointerUp);
+        escapeCancel.listen();
+    }
+
+    function removeSelectionListeners() {
+        document.removeEventListener('pointermove', onSelectionPointerMove);
+        document.removeEventListener('pointerup', onSelectionPointerUp);
+        escapeCancel.stop();
+    }
+
+    /**
+     * Aborts an in-flight selection without creating anything: the ghost is
+     * discarded and `onSelectionComplete` is never called, so no create modal
+     * opens. Detaching the listeners makes the cancel terminal — further
+     * pointer movement and the eventual pointer-up are ignored, and a fresh
+     * pointer-down is required to start selecting again.
+     */
+    function cancelSelection() {
+        removeSelectionListeners();
+
+        isSelecting.value = false;
+        selectionDay.value = null;
+        selectionTop.value = 0;
+        selectionHeight.value = 0;
+        selectionEndDay.value = null;
+        selectionEndTop.value = 0;
+        selectionEndHeight.value = 0;
+
+        selectionStartGridY = 0;
+        selectionStartDay = '';
+    }
 
     function onSlotPointerDown(e: PointerEvent) {
         if (e.button !== 0) return;
@@ -51,8 +88,7 @@ export function useSlotSelection(params: {
         selectionEndHeight.value = 0;
         isSelecting.value = true;
 
-        document.addEventListener('pointermove', onSelectionPointerMove);
-        document.addEventListener('pointerup', onSelectionPointerUp);
+        addSelectionListeners();
     }
 
     function onSelectionPointerMove(e: PointerEvent) {
@@ -94,8 +130,7 @@ export function useSlotSelection(params: {
     }
 
     function onSelectionPointerUp() {
-        document.removeEventListener('pointermove', onSelectionPointerMove);
-        document.removeEventListener('pointerup', onSelectionPointerUp);
+        removeSelectionListeners();
 
         if (!isSelecting.value) return;
         isSelecting.value = false;
@@ -176,8 +211,7 @@ export function useSlotSelection(params: {
     }
 
     onUnmounted(() => {
-        document.removeEventListener('pointermove', onSelectionPointerMove);
-        document.removeEventListener('pointerup', onSelectionPointerUp);
+        removeSelectionListeners();
     });
 
     return {
