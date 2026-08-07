@@ -86,6 +86,9 @@ function mountColumn() {
             selectionHeight: 0,
             selectionEndTop: 0,
             selectionEndHeight: 0,
+            showSelectionLabels: false,
+            selectionRangeLabel: null,
+            selectionDurationLabel: null,
         },
         global: {
             provide: {

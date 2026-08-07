@@ -63,6 +63,10 @@ const props = defineProps<{
     selectionHeight: number;
     selectionEndTop: number;
     selectionEndHeight: number;
+    /** Only the cursor's column labels the selection, so the numbers are not repeated per day. */
+    showSelectionLabels: boolean;
+    selectionRangeLabel: string | null;
+    selectionDurationLabel: string | null;
 }>();
 
 /**
@@ -74,6 +78,20 @@ const eventsInsetStyle = computed<Record<string, string>>(() => ({
     left: props.hasActivityStatus ? (props.isDayView ? '204px' : '8px') : COLUMN_GAP,
     right: props.showExternalLane ? `calc(${EXTERNAL_LANE_WIDTH} + ${COLUMN_GAP})` : COLUMN_GAP,
 }));
+
+/**
+ * Geometry of whichever ghost box carries the labels on this column — the cursor's box on a
+ * cross-day drag, otherwise the single-day box. `null` when this column has no labelled box.
+ */
+const selectionLabelStyle = computed<Record<string, string> | null>(() => {
+    if (props.isSelectionEnd) {
+        return { top: `${props.selectionEndTop}px`, height: `${props.selectionEndHeight}px` };
+    }
+    if (props.isSelectionStart) {
+        return { top: `${props.selectionTop}px`, height: `${props.selectionHeight}px` };
+    }
+    return null;
+});
 
 function isUncoveredByEvents(abox: ActivityBox): boolean {
     return !props.dayEvents.some((de) => {
@@ -311,25 +329,45 @@ const emit = defineEmits<{
 
         <div
             v-if="showSelection && isSelectionStart"
-            class="absolute inset-x-0 pointer-events-none bg-accent border border-primary z-[2]"
+            class="fc-selection-ghost absolute inset-x-0 pointer-events-none border border-primary z-[2]"
             :style="{
                 top: selectionTop + 'px',
                 height: selectionHeight + 'px',
             }"></div>
         <div
             v-if="showSelection && isSelectionIntermediate"
-            class="absolute inset-x-0 pointer-events-none bg-accent border border-primary z-[2]"
+            class="fc-selection-ghost absolute inset-x-0 pointer-events-none border border-primary z-[2]"
             :style="{
                 top: '0px',
                 height: totalGridHeight + 'px',
             }"></div>
         <div
             v-if="showSelection && isSelectionEnd"
-            class="absolute inset-x-0 pointer-events-none bg-accent border border-primary z-[2]"
+            class="fc-selection-ghost absolute inset-x-0 pointer-events-none border border-primary z-[2]"
             :style="{
                 top: selectionEndTop + 'px',
                 height: selectionEndHeight + 'px',
             }"></div>
+
+        <!-- Live range and duration, so you can see how long a selection is while you drag it out
+             rather than only once the entry exists. Overlaid on the ghost instead of nested inside
+             it, so the same markup serves the single-day and cross-day boxes. -->
+        <div
+            v-if="showSelection && showSelectionLabels && selectionLabelStyle"
+            class="fc-selection-labels absolute inset-x-0 pointer-events-none overflow-hidden z-[3]"
+            :style="selectionLabelStyle">
+            <div
+                class="fc-selection-labels-inner h-full flex flex-col px-1 py-0.5 text-[11px] leading-tight font-medium tabular-nums text-text-primary">
+                <span class="fc-selection-range truncate" data-selection-range>
+                    {{ selectionRangeLabel }}
+                </span>
+                <span
+                    class="fc-selection-duration mt-auto self-end shrink-0"
+                    data-selection-duration>
+                    {{ selectionDurationLabel }}
+                </span>
+            </div>
+        </div>
 
         <div
             v-if="isDragging && dragPreview"
@@ -344,6 +382,64 @@ const emit = defineEmits<{
 </template>
 
 <style scoped>
+/*
+ * Translucent so entries the drag passes over stay visible underneath — the ghost sits above
+ * them at z-index 2. Mixed rather than set with a Tailwind alpha modifier because `accent`
+ * maps to a bare `var(--accent)` in tailwind.theme.js, which `bg-accent/55` cannot pierce.
+ */
+.fc-selection-ghost {
+    background-color: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+/* Query target for the compact layouts below — an element cannot query itself. */
+.fc-selection-labels {
+    container-type: size;
+}
+
+/*
+ * A 15-minute selection is 25px tall at the default zoom but only 4px at the minimum, so the
+ * labels shed detail as the box shrinks instead of spilling out of it. Same progression as the
+ * compact layout in FullCalendarEventContent.vue.
+ */
+@container (max-height: 40px) {
+    .fc-selection-labels-inner {
+        flex-direction: row;
+        align-items: center;
+        gap: 4px;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+    .fc-selection-range {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+    .fc-selection-duration {
+        margin-top: 0;
+        margin-left: auto;
+        align-self: center;
+    }
+}
+/*
+ * Side by side in a week column there is no room for both, and half a range ("10:00 - 10:…")
+ * is worse than none — the duration is the number being dragged for, and the axis already
+ * says where the box starts. Day view columns are wide enough to keep both.
+ */
+@container (max-height: 40px) and (max-width: 220px) {
+    .fc-selection-range {
+        display: none;
+    }
+}
+@container (max-height: 18px) {
+    .fc-selection-range {
+        display: none;
+    }
+}
+@container (max-height: 12px) {
+    .fc-selection-labels-inner {
+        display: none;
+    }
+}
+
 .fc-event-resizer::after {
     content: '';
     width: 24px;

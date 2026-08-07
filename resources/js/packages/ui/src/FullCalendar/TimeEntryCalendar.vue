@@ -15,7 +15,12 @@ import { useLocalStorage } from '@vueuse/core';
 import { useCalendarScrollRestore } from './useCalendarScrollRestore';
 import { useCssVariable } from '../utils/useCssVariable';
 import { useBreaksEnabled } from '../utils/useBreaksEnabled';
-import { getLocalizedDayJs, getLocalizedDayJsFromMinutes } from '../utils/time';
+import {
+    formatHumanReadableDuration,
+    formatStartEnd,
+    getLocalizedDayJs,
+    getLocalizedDayJsFromMinutes,
+} from '../utils/time';
 import { LoadingSpinner, TimeEntryCreateModal, TimeEntryEditModal } from '..';
 import BreakCreateModal from '../TimeEntry/BreakCreateModal.vue';
 import FullCalendarDayHeader from './FullCalendarDayHeader.vue';
@@ -271,6 +276,8 @@ const {
     selectionEndTop,
     selectionEndHeight,
     selectionIntermediateDays,
+    selectionTimes,
+    selectionDurationSeconds,
     onSlotPointerDown,
     clearSelection,
 } = useSlotSelection({
@@ -286,6 +293,37 @@ const {
         showCreateTimeEntryModal.value = true;
     },
 });
+
+/*
+ * Labels for the in-progress selection ghost. Formatted here rather than in the day column
+ * because the organization's display formats are injected at this level, and using the same
+ * helpers as a rendered entry means the duration you drag out matches the one you end up with.
+ */
+const selectionDurationLabel = computed(() =>
+    selectionDurationSeconds.value === null
+        ? null
+        : formatHumanReadableDuration(
+              selectionDurationSeconds.value,
+              organization?.value?.interval_format,
+              organization?.value?.number_format
+          )
+);
+
+const selectionRangeLabel = computed(() => {
+    const times = selectionTimes.value;
+    if (!times) return null;
+    return formatStartEnd(
+        times.start.toISOString(),
+        times.end.toISOString(),
+        organization?.value?.time_format
+    );
+});
+
+/**
+ * The one day column that carries the labels: the cursor's column for a cross-day drag,
+ * otherwise the single selected day. Intermediate full-height columns never get them.
+ */
+const selectionLabelDay = computed(() => selectionEndDay.value ?? selectionDay.value);
 
 const {
     contextMenuTimeEntry,
@@ -766,6 +804,11 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                                             :selection-height="selectionHeight"
                                             :selection-end-top="selectionEndTop"
                                             :selection-end-height="selectionEndHeight"
+                                            :show-selection-labels="
+                                                selectionLabelDay === day.format('YYYY-MM-DD')
+                                            "
+                                            :selection-range-label="selectionRangeLabel"
+                                            :selection-duration-label="selectionDurationLabel"
                                             @activity-pointerdown="guardedSlotPointerDown"
                                             @external-event-copy="copyExternalEventToTimeEntry"
                                             @event-pointerdown="

@@ -2838,14 +2838,20 @@ test.describe('Selection & Drag-to-Create Details', () => {
         const endSlot = page.locator('.fc-timegrid-slot-lane[data-time="11:00:00"]').first();
         const endBox = await endSlot.boundingBox();
 
-        // Start dragging without releasing
+        // Start dragging without releasing. Stopping just short of the 11:00 boundary keeps the
+        // selection snapping to exactly 11:00 regardless of sub-pixel layout jitter.
         await page.mouse.move(startBox!.x + startBox!.width / 2, startBox!.y + 2);
         await page.mouse.down();
-        await page.mouse.move(endBox!.x + endBox!.width / 2, endBox!.y + 2, { steps: 10 });
+        await page.mouse.move(endBox!.x + endBox!.width / 2, endBox!.y - 2, { steps: 10 });
 
-        // Selection highlight should be visible (bg-accent border-primary class)
-        const selectionMirror = page.locator('.bg-accent.border-primary');
+        // Selection highlight should be visible
+        const selectionMirror = page.locator('.fc-selection-ghost');
         await expect(selectionMirror.first()).toBeVisible();
+
+        // The range and duration are shown while dragging, before any entry exists.
+        // The range is matched loosely so it holds for 12-hour organizations too.
+        await expect(page.locator('[data-selection-range]')).toHaveText(/10:00.*11:00/);
+        await expect(page.locator('[data-selection-duration]')).toHaveText('1h 00min');
 
         // Release mouse
         await page.mouse.up();

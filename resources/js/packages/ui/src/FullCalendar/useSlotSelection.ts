@@ -129,12 +129,16 @@ export function useSlotSelection(params: {
         }
     }
 
-    function onSelectionPointerUp() {
-        removeSelectionListeners();
-
-        if (!isSelecting.value) return;
-        isSelecting.value = false;
-
+    /**
+     * Materializes the pixel selection into local start/end times. Pure and derived only from
+     * reactive state, so it serves both the pointer-up commit and the live duration read off
+     * mid-drag — the pixels are the single source of truth either way.
+     *
+     * The start day is a parameter so the live computed can pass the trackable `selectionDay`
+     * ref instead of the non-reactive `selectionStartDay`. The two are assigned together in
+     * `onSlotPointerDown` and never diverge.
+     */
+    function computeSelectionTimes(startDayStr: string): { start: Dayjs; end: Dayjs } {
         const s = params.calendarSettings.value;
         const snap = s.snapMinutes;
         const startMinutes = params.pixelsToMinutesFromMidnight(selectionTop.value);
@@ -143,14 +147,14 @@ export function useSlotSelection(params: {
         let startLocal;
         let endLocal;
 
-        if (selectionEndDay.value && selectionEndDay.value !== selectionStartDay) {
+        if (selectionEndDay.value && selectionEndDay.value !== startDayStr) {
             const endMinutes = params.pixelsToMinutesFromMidnight(
                 selectionEndTop.value + selectionEndHeight.value
             );
             let snappedEndMin = Math.ceil(endMinutes / snap) * snap;
             if (snappedEndMin <= 0) snappedEndMin = snap;
 
-            let startDateStr = selectionStartDay;
+            let startDateStr = startDayStr;
             let endDateStr = selectionEndDay.value;
             let startMin = snappedStartMin;
             let endMin = snappedEndMin;
@@ -174,7 +178,6 @@ export function useSlotSelection(params: {
             startLocal = getLocalizedDayJsFromMinutes(startDateStr, startMin);
             endLocal = getLocalizedDayJsFromMinutes(endDateStr, endMin);
         } else {
-            const startDateStr = selectionStartDay;
             const endMinutes = params.pixelsToMinutesFromMidnight(
                 selectionTop.value + selectionHeight.value
             );
@@ -182,12 +185,37 @@ export function useSlotSelection(params: {
             if (snappedEndMin <= snappedStartMin) {
                 snappedEndMin = snappedStartMin + snap;
             }
-            startLocal = getLocalizedDayJsFromMinutes(startDateStr, snappedStartMin);
-            endLocal = getLocalizedDayJsFromMinutes(startDateStr, snappedEndMin);
+            startLocal = getLocalizedDayJsFromMinutes(startDayStr, snappedStartMin);
+            endLocal = getLocalizedDayJsFromMinutes(startDayStr, snappedEndMin);
         }
 
-        params.onSelectionComplete(startLocal.utc(), endLocal.utc());
+        return { start: startLocal, end: endLocal };
     }
+
+    function onSelectionPointerUp() {
+        removeSelectionListeners();
+
+        if (!isSelecting.value) return;
+        isSelecting.value = false;
+
+        const times = computeSelectionTimes(selectionStartDay);
+        params.onSelectionComplete(times.start.utc(), times.end.utc());
+    }
+
+    /**
+     * The selection's times as they stand right now, so the ghost can show the range and
+     * duration *while* you drag instead of only once the entry exists.
+     */
+    const selectionTimes = computed<{ start: Dayjs; end: Dayjs } | null>(() =>
+        selectionDay.value ? computeSelectionTimes(selectionDay.value) : null
+    );
+
+    const selectionDurationSeconds = computed<number | null>(() => {
+        const times = selectionTimes.value;
+        if (!times) return null;
+        const diff = times.end.diff(times.start, 'second');
+        return diff > 0 ? diff : 0;
+    });
 
     // Intermediate days between start and end day (excluding both) that need full-height selection
     const selectionIntermediateDays = computed<Set<string>>(() => {
@@ -223,6 +251,8 @@ export function useSlotSelection(params: {
         selectionEndTop,
         selectionEndHeight,
         selectionIntermediateDays,
+        selectionTimes,
+        selectionDurationSeconds,
         onSlotPointerDown,
         clearSelection,
     };
