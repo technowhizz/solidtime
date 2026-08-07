@@ -406,9 +406,14 @@ test('test that creating an API key with empty name shows validation error', asy
     // Ensure the API Key Name input is empty
     await nameInput.fill('');
 
-    // Click the create button and wait for the 422 response
+    // Click the create button and wait for the 422 response. Match the POST specifically —
+    // the page also GETs this URL to list the tokens, and catching that instead yields a 200.
     const [response] = await Promise.all([
-        page.waitForResponse('**/users/me/api-tokens'),
+        page.waitForResponse(
+            (response) =>
+                response.url().includes('/users/me/api-tokens') &&
+                response.request().method() === 'POST'
+        ),
         page.getByRole('button', { name: 'Create API Key' }).click(),
     ]);
 
