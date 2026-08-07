@@ -39,11 +39,13 @@ import {
 } from '@heroicons/vue/20/solid';
 import { Coffee } from '@lucide/vue';
 import type { ActivityPeriod } from './activityTypes';
+import type { ExternalCalendarEvent } from './externalCalendarTypes';
 import { SLOT_HEIGHT, TIME_AXIS_WIDTH, type DayEvent } from './calendarTypes';
 import { useCalendarGrid } from './useCalendarGrid';
 import { useCalendarNavigation } from './useCalendarNavigation';
 import { useCalendarEvents } from './useCalendarEvents';
 import { useActivityBoxes } from './useActivityBoxes';
+import { useExternalEventBoxes } from './useExternalEventBoxes';
 import { useEventDrag } from './useEventDrag';
 import { useEventResize } from './useEventResize';
 import { useSlotSelection } from './useSlotSelection';
@@ -72,6 +74,8 @@ const props = defineProps<{
     clients: Client[];
     tags: Tag[];
     activityPeriods?: ActivityPeriod[];
+    // Read-only events from a connected external calendar, drawn in their own lane
+    externalCalendarEvents?: ExternalCalendarEvent[];
     loading?: boolean;
 
     enableEstimatedTime: boolean;
@@ -93,6 +97,7 @@ const props = defineProps<{
 
 const newEventStart = ref<Dayjs | null>(null);
 const newEventEnd = ref<Dayjs | null>(null);
+const newEventDescription = ref<string | null>(null);
 const showCreateBreakModal = ref(false);
 const newBreakStart = ref<Dayjs | null>(null);
 const newBreakEnd = ref<Dayjs | null>(null);
@@ -197,6 +202,14 @@ const {
     minutesToPixels,
 });
 
+const { externalEventBoxesForDay, hasAnyExternalEvents } = useExternalEventBoxes({
+    externalEvents: () => props.externalCalendarEvents,
+    viewDays,
+    calendarSettings,
+    minutesToPixels,
+    timeToMinutesFromMidnight,
+});
+
 const { isDragging, dragEventId, dragPreviewsByDay, onEventPointerDown } = useEventDrag({
     calendarSettings,
     viewDays,
@@ -262,6 +275,10 @@ const {
 
 const {
     contextMenuTimeEntry,
+    contextMenuExternalEvent,
+    copyExternalEventToTimeEntry,
+    handleContextCopyExternalEvent,
+    handleContextCopyExternalEventAndEdit,
     handleCalendarContextMenu,
     handleContextEdit,
     handleContextDuplicate,
@@ -274,6 +291,7 @@ const {
 } = useContextMenu({
     calendarSettings,
     calendarEvents,
+    externalCalendarEvents: () => props.externalCalendarEvents ?? [],
     pixelsToMinutesFromMidnight,
     getDayFromClientX,
     clientYToGridPixels,
@@ -284,9 +302,10 @@ const {
         selectedTimeEntry.value = entry;
         showEditTimeEntryModal.value = true;
     },
-    onCreateEvent: (start, end) => {
+    onCreateEvent: (start, end, description) => {
         newEventStart.value = start;
         newEventEnd.value = end;
+        newEventDescription.value = description ?? null;
         showCreateTimeEntryModal.value = true;
     },
     onCreateBreak: (start, end) => {
@@ -301,6 +320,7 @@ watch(showCreateTimeEntryModal, (value) => {
     if (!value) {
         newEventStart.value = null;
         newEventEnd.value = null;
+        newEventDescription.value = null;
         clearSelection();
         emit('refresh');
     }
@@ -509,7 +529,8 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
             :tasks="tasks"
             :clients="clients"
             :start="newEventStart ? newEventStart.toISOString() : undefined"
-            :end="newEventEnd ? newEventEnd.toISOString() : undefined" />
+            :end="newEventEnd ? newEventEnd.toISOString() : undefined"
+            :initial-description="newEventDescription ?? undefined" />
 
         <BreakCreateModal
             v-model:show="showCreateBreakModal"
@@ -661,6 +682,10 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                                             :has-activity-status="
                                                 dayHasActivityStatus(day.format('YYYY-MM-DD'))
                                             "
+                                            :show-external-lane="hasAnyExternalEvents"
+                                            :external-event-boxes="
+                                                externalEventBoxesForDay(day.format('YYYY-MM-DD'))
+                                            "
                                             :day-events="
                                                 eventsByDay[day.format('YYYY-MM-DD')] || []
                                             "
@@ -712,6 +737,7 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                                             :selection-end-top="selectionEndTop"
                                             :selection-end-height="selectionEndHeight"
                                             @activity-pointerdown="guardedSlotPointerDown"
+                                            @external-event-copy="copyExternalEventToTimeEntry"
                                             @event-pointerdown="
                                                 (e, dayEvent) =>
                                                     onEventPointerDown(e, dayEvent.event, dayEvent)
@@ -740,7 +766,21 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                 </ContextMenuTrigger>
 
                 <ContextMenuContent class="min-w-[160px]">
-                    <template v-if="contextMenuTimeEntry && contextMenuTimeEntry.end !== null">
+                    <template v-if="contextMenuExternalEvent">
+                        <ContextMenuItem
+                            class="space-x-3"
+                            @select="handleContextCopyExternalEvent()">
+                            <DocumentDuplicateIcon class="w-4 h-4 text-icon-default" />
+                            <span>Copy as time entry</span>
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                            class="space-x-3"
+                            @select="handleContextCopyExternalEventAndEdit()">
+                            <PencilIcon class="w-4 h-4 text-icon-default" />
+                            <span>Copy and edit…</span>
+                        </ContextMenuItem>
+                    </template>
+                    <template v-else-if="contextMenuTimeEntry && contextMenuTimeEntry.end !== null">
                         <ContextMenuItem class="space-x-3" @select="handleContextEdit()">
                             <PencilIcon class="w-4 h-4 text-icon-default" />
                             <span>Edit</span>

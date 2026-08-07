@@ -1,6 +1,7 @@
 import type { TimeEntry, Project, Client, Task } from '@/packages/api/src';
 import type { Dayjs } from 'dayjs';
 import type { ActivityPeriod } from './activityTypes';
+import type { LaidOutEvent } from './eventLayout';
 
 export const SLOT_HEIGHT = 25;
 export const DRAG_THRESHOLD = 5;
@@ -23,15 +24,7 @@ export interface CalendarEvent {
     dayEnd: Dayjs;
 }
 
-export interface DayEvent {
-    event: CalendarEvent;
-    top: number;
-    height: number;
-    left: string;
-    width: string;
-    isClippedStart: boolean;
-    isClippedEnd: boolean;
-}
+export type DayEvent = LaidOutEvent<CalendarEvent>;
 
 export interface ActivityBox {
     dateStr: string;

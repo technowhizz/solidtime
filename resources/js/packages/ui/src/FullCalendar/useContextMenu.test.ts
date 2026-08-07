@@ -2,6 +2,8 @@ import { computed, ref } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TimeEntry } from '@/packages/api/src';
 import type { CalendarEvent } from './calendarTypes';
+import type { ExternalCalendarEvent } from './externalCalendarTypes';
+import { getDayJsInstance } from '../utils/time';
 import { useContextMenu } from './useContextMenu';
 
 function breakEntry(): TimeEntry {
@@ -45,6 +47,7 @@ describe('useContextMenu break actions', () => {
                 slotMinutes: 15,
             }),
             calendarEvents,
+            externalCalendarEvents: () => [],
             pixelsToMinutesFromMidnight: () => 0,
             getDayFromClientX: () => null,
             clientYToGridPixels: () => 0,
@@ -59,9 +62,10 @@ describe('useContextMenu break actions', () => {
 
         menu.handleCalendarContextMenu({
             target: {
-                closest: () => ({
-                    getAttribute: () => entry.id,
-                }),
+                // The handler probes for an external calendar event first, so the stub has
+                // to answer per selector rather than matching everything
+                closest: (selector: string) =>
+                    selector === '[data-event-id]' ? { getAttribute: () => entry.id } : null,
             },
         } as unknown as MouseEvent);
 
@@ -91,5 +95,94 @@ describe('useContextMenu break actions', () => {
                 type: 'break',
             })
         );
+    });
+});
+
+describe('useContextMenu external calendar events', () => {
+    const createTimeEntry = vi.fn().mockResolvedValue(undefined);
+    const onCreateEvent = vi.fn();
+
+    const externalEvent: ExternalCalendarEvent = {
+        id: 'google-event-1',
+        title: 'Sprint planning',
+        start: '2026-08-04T10:00:00Z',
+        end: '2026-08-04T11:30:00Z',
+        isAllDay: false,
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    function contextMenu(matchedId: string | null = externalEvent.id) {
+        const menu = useContextMenu({
+            calendarSettings: ref({
+                snapMinutes: 15,
+                startHour: 0,
+                endHour: 24,
+                slotMinutes: 15,
+            }),
+            calendarEvents: computed(() => []),
+            externalCalendarEvents: () => [externalEvent],
+            pixelsToMinutesFromMidnight: () => 0,
+            getDayFromClientX: () => null,
+            clientYToGridPixels: () => 0,
+            createTimeEntry,
+            updateTimeEntry: vi.fn().mockResolvedValue(undefined),
+            deleteTimeEntry: vi.fn().mockResolvedValue(undefined),
+            onEditEvent: vi.fn(),
+            onCreateEvent,
+            onCreateBreak: vi.fn(),
+            emitRefresh: vi.fn(),
+        });
+
+        menu.handleCalendarContextMenu({
+            target: {
+                closest: (selector: string) =>
+                    selector === '[data-external-event-id]' && matchedId !== null
+                        ? { getAttribute: () => matchedId }
+                        : null,
+            },
+        } as unknown as MouseEvent);
+
+        return menu;
+    }
+
+    it('selects the external event that was right clicked', () => {
+        expect(contextMenu().contextMenuExternalEvent.value).toEqual(externalEvent);
+    });
+
+    it('copies an external event into a work time entry titled with the event', async () => {
+        await contextMenu().handleContextCopyExternalEvent();
+
+        expect(createTimeEntry).toHaveBeenCalledWith(
+            expect.objectContaining({
+                description: 'Sprint planning',
+                type: 'work',
+                billable: false,
+                project_id: null,
+                task_id: null,
+                tags: [],
+            })
+        );
+        const entry = createTimeEntry.mock.calls[0]![0];
+        expect(getDayJsInstance().utc(entry.start).toISOString()).toBe('2026-08-04T10:00:00.000Z');
+        expect(getDayJsInstance().utc(entry.end).toISOString()).toBe('2026-08-04T11:30:00.000Z');
+    });
+
+    it('opens the prefilled create modal for copy and edit', () => {
+        contextMenu().handleContextCopyExternalEventAndEdit();
+
+        expect(onCreateEvent).toHaveBeenCalledTimes(1);
+        const [start, end, description] = onCreateEvent.mock.calls[0]!;
+        expect(start.toISOString()).toBe('2026-08-04T10:00:00.000Z');
+        expect(end.toISOString()).toBe('2026-08-04T11:30:00.000Z');
+        expect(description).toBe('Sprint planning');
+    });
+
+    it('ignores a right click on an unknown external event', () => {
+        const menu = contextMenu('unknown-id');
+
+        expect(menu.contextMenuExternalEvent.value).toBeNull();
     });
 });

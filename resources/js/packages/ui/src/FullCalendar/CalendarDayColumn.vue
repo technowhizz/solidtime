@@ -1,13 +1,23 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+import { DocumentDuplicateIcon } from '@heroicons/vue/20/solid';
 import FullCalendarEventContent from './FullCalendarEventContent.vue';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '..';
 import type { DayEvent, ActivityBox } from './calendarTypes';
 import type { WindowActivityInPeriod } from './activityTypes';
+import type { ExternalCalendarEvent, ExternalEventBox } from './externalCalendarTypes';
+
+/** Share of the column width the external calendar lane occupies on the right. */
+const EXTERNAL_LANE_WIDTH = '25%';
+/** Breathing room so events do not touch the column borders. */
+const COLUMN_GAP = '2px';
 
 const props = defineProps<{
     dayStr: string;
     totalGridHeight: number;
     hasActivityStatus: boolean;
+    /** Reserve the external calendar lane on every day column of the current view. */
+    showExternalLane: boolean;
 
     // Events
     dayEvents: DayEvent[];
@@ -37,6 +47,9 @@ const props = defineProps<{
     getTopActivity: (box: ActivityBox) => WindowActivityInPeriod | null;
     isDayView: boolean;
 
+    // External calendar events (read-only overlay lane)
+    externalEventBoxes: ExternalEventBox[];
+
     // Selection
     showSelection: boolean;
     isSelectionStart: boolean;
@@ -47,6 +60,16 @@ const props = defineProps<{
     selectionEndTop: number;
     selectionEndHeight: number;
 }>();
+
+/**
+ * The activity gutter on the left and the external calendar lane on the right each push
+ * the time entries inward. Composing them into one inline style keeps this from turning
+ * into a class matrix that multiplies with every new lane.
+ */
+const eventsInsetStyle = computed<Record<string, string>>(() => ({
+    left: props.hasActivityStatus ? (props.isDayView ? '204px' : '8px') : COLUMN_GAP,
+    right: props.showExternalLane ? `calc(${EXTERNAL_LANE_WIDTH} + ${COLUMN_GAP})` : COLUMN_GAP,
+}));
 
 function isUncoveredByEvents(abox: ActivityBox): boolean {
     return !props.dayEvents.some((de) => {
@@ -68,6 +91,7 @@ const emit = defineEmits<{
         edge: 'start' | 'end'
     ): void;
     (e: 'activity-pointerdown', event: PointerEvent): void;
+    (e: 'external-event-copy', event: ExternalCalendarEvent): void;
 }>();
 </script>
 
@@ -80,12 +104,7 @@ const emit = defineEmits<{
         }"
         :data-date="dayStr"
         :style="{ height: totalGridHeight + 'px' }">
-        <div
-            class="absolute inset-y-0 left-0.5 right-0.5"
-            :class="{
-                'fc-events-inset': hasActivityStatus && !isDayView,
-                'fc-events-inset-expanded': hasActivityStatus && isDayView,
-            }">
+        <div class="absolute inset-y-0" :style="eventsInsetStyle">
             <div
                 v-for="dayEvent in dayEvents"
                 :key="dayEvent.event.id"
@@ -132,6 +151,41 @@ const emit = defineEmits<{
                     @pointerdown.stop.prevent="
                         emit('resizer-pointerdown', $event, dayEvent, 'end')
                     "></div>
+            </div>
+        </div>
+
+        <!-- Read-only lane for events from a connected external calendar. The divider is
+             drawn on every day column, so the lane boundary does not appear and disappear
+             from day to day. -->
+        <div
+            v-if="showExternalLane"
+            class="fc-external-lane-divider absolute inset-y-0 pointer-events-none"
+            :style="{ right: EXTERNAL_LANE_WIDTH }"></div>
+        <div
+            v-if="showExternalLane"
+            class="fc-external-lane absolute inset-y-0 right-0"
+            :style="{ width: EXTERNAL_LANE_WIDTH }">
+            <div
+                v-for="box in externalEventBoxes"
+                :key="box.event.id"
+                class="fc-external-event group/external pointer-events-auto absolute rounded-sm border overflow-hidden"
+                :data-external-event-id="box.event.id"
+                :style="{
+                    top: box.top + 'px',
+                    height: box.height + 'px',
+                    left: box.left,
+                    width: box.width,
+                }"
+                :title="box.event.title"
+                @pointerdown.stop>
+                <div class="fc-external-event-title">{{ box.event.title }}</div>
+                <button
+                    type="button"
+                    class="fc-external-event-copy opacity-0 group-hover/external:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label="Copy as time entry"
+                    @click.stop="emit('external-event-copy', box.event)">
+                    <DocumentDuplicateIcon class="w-3 h-3" />
+                </button>
             </div>
         </div>
 
@@ -409,12 +463,72 @@ const emit = defineEmits<{
     opacity: 0.8;
 }
 
-.fc-events-inset {
-    left: 8px;
+/*
+ * External calendar events are read-only, so they read as a quieter, blue-tinted lane
+ * rather than as time entries. The tints are theme scoped: the same alpha over the light
+ * surface and the near-black dark surface would not land at the same visual weight.
+ */
+/*
+ * Divider between the time entries and the lane. Deliberately fainter than the solid day
+ * boundaries (--color-border-primary) so it reads as a subdivision of a column rather than
+ * as another column edge.
+ */
+.fc-external-lane-divider {
+    border-left: 1px dashed rgba(0, 0, 0, 0.055);
+    z-index: 4;
 }
 
-.fc-events-inset-expanded {
-    left: 204px;
+:root.dark .fc-external-lane-divider {
+    border-left-color: rgba(255, 255, 255, 0.07);
+}
+
+.fc-external-lane {
+    z-index: 5;
+
+    --fc-external-bg: rgba(59, 130, 246, 0.1);
+    --fc-external-bg-hover: rgba(59, 130, 246, 0.2);
+    --fc-external-border: rgba(59, 130, 246, 0.35);
+}
+
+:root.dark .fc-external-lane {
+    --fc-external-bg: rgba(96, 165, 250, 0.16);
+    --fc-external-bg-hover: rgba(96, 165, 250, 0.28);
+    --fc-external-border: rgba(96, 165, 250, 0.45);
+}
+
+.fc-external-event {
+    background-color: var(--fc-external-bg);
+    border-color: var(--fc-external-border);
+    cursor: default;
+}
+
+.fc-external-event:hover {
+    background-color: var(--fc-external-bg-hover);
+}
+
+.fc-external-event-title {
+    padding: 2px 4px;
+    padding-right: 16px;
+    font-size: 10px;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--color-text-secondary);
+}
+
+.fc-external-event-copy {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1px;
+    border-radius: 3px;
+    background-color: var(--theme-color-default-background);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: opacity 0.15s ease;
 }
 
 /* Breaks get a hatched texture so they can not be confused with a project color */

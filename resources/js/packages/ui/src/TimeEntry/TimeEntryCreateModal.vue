@@ -36,6 +36,8 @@ const props = defineProps<{
     clients: Client[];
     start?: string;
     end?: string;
+    /** Prefills the description, e.g. when copying an external calendar event */
+    initialDescription?: string;
     currency: string;
     organizationBillableRate: number | null;
     canCreateProject: boolean;
@@ -81,6 +83,13 @@ watch(
         if (value) {
             localEnd.value = getLocalizedDayJs(value).format();
         }
+    }
+);
+
+watch(
+    () => props.initialDescription,
+    (value) => {
+        timeEntry.value.description = value ?? '';
     }
 );
 

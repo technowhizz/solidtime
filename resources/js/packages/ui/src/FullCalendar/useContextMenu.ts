@@ -5,10 +5,12 @@ import { getDayJsInstance, getLocalizedDayJs, getLocalizedDayJsFromMinutes } fro
 
 import type { CalendarSettings } from './calendarSettings';
 import type { CalendarEvent } from './calendarTypes';
+import type { ExternalCalendarEvent } from './externalCalendarTypes';
 
 export function useContextMenu(params: {
     calendarSettings: Ref<CalendarSettings>;
     calendarEvents: ComputedRef<CalendarEvent[]>;
+    externalCalendarEvents: () => ExternalCalendarEvent[];
     pixelsToMinutesFromMidnight: (px: number) => number;
     getDayFromClientX: (clientX: number) => string | null;
     clientYToGridPixels: (clientY: number) => number;
@@ -18,11 +20,12 @@ export function useContextMenu(params: {
     updateTimeEntry: (entry: TimeEntry) => Promise<void>;
     deleteTimeEntry: (id: string) => Promise<void>;
     onEditEvent: (entry: TimeEntry) => void;
-    onCreateEvent: (start: Dayjs, end: Dayjs) => void;
+    onCreateEvent: (start: Dayjs, end: Dayjs, description?: string) => void;
     onCreateBreak: (start: Dayjs, end: Dayjs) => void;
     emitRefresh: () => void;
 }) {
     const contextMenuTimeEntry = ref<TimeEntry | null>(null);
+    const contextMenuExternalEvent = ref<ExternalCalendarEvent | null>(null);
     const contextMenuCreateTime = ref<{ start: Dayjs; end: Dayjs } | null>(null);
 
     function getTimeAtClickPosition(event: MouseEvent): { start: Dayjs; end: Dayjs } | null {
@@ -43,10 +46,28 @@ export function useContextMenu(params: {
 
     function handleCalendarContextMenu(event: MouseEvent) {
         const target = event.target as HTMLElement;
+        const externalEventEl = target.closest<HTMLElement>('[data-external-event-id]');
+
+        if (externalEventEl) {
+            const externalEventId = externalEventEl.getAttribute('data-external-event-id');
+            if (!externalEventId) return;
+
+            const externalEvent = params
+                .externalCalendarEvents()
+                .find((e) => e.id === externalEventId);
+            if (!externalEvent) return;
+
+            contextMenuExternalEvent.value = externalEvent;
+            contextMenuTimeEntry.value = null;
+            contextMenuCreateTime.value = null;
+            return;
+        }
+
         const eventEl = target.closest<HTMLElement>('[data-event-id]');
 
         if (!eventEl) {
             contextMenuTimeEntry.value = null;
+            contextMenuExternalEvent.value = null;
             const timeInfo = getTimeAtClickPosition(event);
             contextMenuCreateTime.value = timeInfo;
             return;
@@ -59,7 +80,42 @@ export function useContextMenu(params: {
         if (!ev) return;
 
         contextMenuTimeEntry.value = ev.timeEntry;
+        contextMenuExternalEvent.value = null;
         contextMenuCreateTime.value = null;
+    }
+
+    async function handleContextCopyExternalEvent() {
+        if (!contextMenuExternalEvent.value) return;
+        await copyExternalEventToTimeEntry(contextMenuExternalEvent.value);
+    }
+
+    function handleContextCopyExternalEventAndEdit() {
+        const externalEvent = contextMenuExternalEvent.value;
+        if (!externalEvent) return;
+        params.onCreateEvent(
+            getDayJsInstance().utc(externalEvent.start),
+            getDayJsInstance().utc(externalEvent.end),
+            externalEvent.title
+        );
+    }
+
+    /**
+     * Copying is the only write path for external events - solidtime never stores their
+     * content, it just seeds a normal time entry from the title and time range.
+     */
+    async function copyExternalEventToTimeEntry(externalEvent: ExternalCalendarEvent) {
+        const dayjs = getDayJsInstance();
+        await params.createTimeEntry({
+            start: dayjs.utc(externalEvent.start).format(),
+            end: dayjs.utc(externalEvent.end).format(),
+            billable: false,
+            type: 'work',
+            description: externalEvent.title,
+            project_id: null,
+            task_id: null,
+            tags: [],
+        });
+        params.emitRefresh();
     }
 
     function handleContextEdit() {
@@ -200,7 +256,11 @@ export function useContextMenu(params: {
 
     return {
         contextMenuTimeEntry,
+        contextMenuExternalEvent,
         contextMenuCreateTime,
+        copyExternalEventToTimeEntry,
+        handleContextCopyExternalEvent,
+        handleContextCopyExternalEventAndEdit,
         handleCalendarContextMenu,
         handleContextEdit,
         handleContextDuplicate,
