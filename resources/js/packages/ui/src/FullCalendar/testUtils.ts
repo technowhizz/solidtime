@@ -1,8 +1,12 @@
 import { defineComponent } from 'vue';
 import { mount } from '@vue/test-utils';
 import type { CalendarSettings } from './calendarSettings';
+import {
+    DEFAULT_PIXELS_PER_HOUR,
+    minutesToPixelsFor,
+    pixelsToMinutesFor,
+} from './calendarSettings';
 import { getDayJsInstance } from '../utils/time';
-import { SLOT_HEIGHT } from './calendarTypes';
 
 /**
  * Runs a composable inside a throwaway component so that the `onUnmounted`
@@ -28,13 +32,20 @@ export const testCalendarSettings: CalendarSettings = {
     startHour: 0,
     endHour: 24,
     slotMinutes: 15,
+    pixelsPerHour: DEFAULT_PIXELS_PER_HOUR,
 };
 
 export const testViewDays = () => [getDayJsInstance()(TEST_DAY)];
 
-/** Grid maths for a 24h grid of 15-minute slots — inverses of each other. */
-export const minutesToPixels = (minutes: number) => (minutes / 15) * SLOT_HEIGHT;
-export const pixelsToMinutesFromMidnight = (px: number) => (px / SLOT_HEIGHT) * 15;
+/**
+ * Grid maths for a 24h grid of 15-minute slots — inverses of each other. Derived from the
+ * zoom level rather than a fixed slot height, which at the default zoom is the same 25px
+ * per 15-minute slot these helpers used before the grid became zoomable.
+ */
+export const minutesToPixels = (minutes: number) =>
+    minutesToPixelsFor(testCalendarSettings, minutes);
+export const pixelsToMinutesFromMidnight = (px: number) =>
+    pixelsToMinutesFor(testCalendarSettings, px);
 export const totalGridPixels = minutesToPixels(24 * 60);
 
 /**

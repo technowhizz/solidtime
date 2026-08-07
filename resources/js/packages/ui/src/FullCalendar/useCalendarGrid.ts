@@ -3,7 +3,7 @@ import type { ComputedRef } from 'vue';
 import type { Dayjs } from 'dayjs';
 import type { Organization } from '@/packages/api/src';
 import type { CalendarSettings } from './calendarSettings';
-import { SLOT_HEIGHT } from './calendarTypes';
+import { minutesToPixelsFor, pixelsToMinutesFor, slotHeightFor } from './calendarSettings';
 
 export function useCalendarGrid(
     calendarSettings: Ref<CalendarSettings>,
@@ -27,7 +27,9 @@ export function useCalendarGrid(
         return result;
     });
 
-    const totalGridHeight = computed(() => slots.value.length * SLOT_HEIGHT);
+    const slotHeight = computed(() => slotHeightFor(calendarSettings.value));
+
+    const totalGridHeight = computed(() => slots.value.length * slotHeight.value);
 
     function formatSlotLabel(hour: number): string {
         const timeFormat = organization?.value?.time_format || '24-hours';
@@ -42,13 +44,12 @@ export function useCalendarGrid(
     }
 
     function minutesToPixels(minutes: number): number {
-        const s = calendarSettings.value;
-        return (minutes / s.slotMinutes) * SLOT_HEIGHT;
+        return minutesToPixelsFor(calendarSettings.value, minutes);
     }
 
     function pixelsToMinutesFromMidnight(px: number): number {
         const s = calendarSettings.value;
-        return (px / SLOT_HEIGHT) * s.slotMinutes + s.startHour * 60;
+        return pixelsToMinutesFor(s, px) + s.startHour * 60;
     }
 
     function timeToMinutesFromMidnight(time: Dayjs): number {
@@ -121,6 +122,7 @@ export function useCalendarGrid(
 
     return {
         slots,
+        slotHeight,
         totalGridHeight,
         formatSlotLabel,
         minutesToPixels,

@@ -3,7 +3,7 @@ import type { Dayjs } from 'dayjs';
 import { getLocalizedDayJsFromMinutes } from '../utils/time';
 
 import type { CalendarSettings } from './calendarSettings';
-import { SLOT_HEIGHT } from './calendarTypes';
+import { minutesToPixelsFor } from './calendarSettings';
 import { createEscapeCancel } from './escapeCancel';
 
 export function useSlotSelection(params: {
@@ -75,7 +75,7 @@ export function useSlotSelection(params: {
 
         const gridY = params.clientYToGridPixels(e.clientY);
         const s = params.calendarSettings.value;
-        const snapPx = (s.snapMinutes / s.slotMinutes) * SLOT_HEIGHT;
+        const snapPx = minutesToPixelsFor(s, s.snapMinutes);
         const snappedY = Math.floor(gridY / snapPx) * snapPx;
 
         selectionStartGridY = snappedY;
@@ -95,7 +95,7 @@ export function useSlotSelection(params: {
         if (!isSelecting.value) return;
         const gridY = params.clientYToGridPixels(e.clientY);
         const s = params.calendarSettings.value;
-        const snapPx = (s.snapMinutes / s.slotMinutes) * SLOT_HEIGHT;
+        const snapPx = minutesToPixelsFor(s, s.snapMinutes);
         const maxPx = params.totalGridHeight.value;
 
         const currentDay = params.getDayFromClientX(e.clientX);

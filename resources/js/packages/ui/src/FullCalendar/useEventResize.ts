@@ -3,8 +3,8 @@ import type { Dayjs } from 'dayjs';
 import type { TimeEntry } from '@/packages/api/src';
 import { getDayJsInstance, getLocalizedDayJs, getLocalizedDayJsFromMinutes } from '../utils/time';
 import type { CalendarSettings } from './calendarSettings';
+import { minutesToPixelsFor } from './calendarSettings';
 import type { CalendarEvent, DayEvent } from './calendarTypes';
-import { SLOT_HEIGHT } from './calendarTypes';
 import { createEscapeCancel } from './escapeCancel';
 
 function snapTo(value: number, step: number): number {
@@ -72,7 +72,7 @@ export function useEventResize(params: {
         const s = params.calendarSettings.value;
         const startMin = s.startHour * 60;
         const endMin = s.endHour * 60;
-        const snapPx = (s.snapMinutes / s.slotMinutes) * SLOT_HEIGHT;
+        const snapPx = minutesToPixelsFor(s, s.snapMinutes);
         const totalGridPx = params.minutesToPixels(endMin - startMin);
         return { s, startMin, endMin, snapPx, totalGridPx };
     }

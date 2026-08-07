@@ -264,6 +264,57 @@ test.describe('Calendar Toolbar', () => {
         expect(todayHeaders).toEqual(initialHeaders);
     });
 
+    test('zoom buttons change the vertical scale and persist', async ({ page }) => {
+        await clearCalendarSettings(page);
+        await goToCalendar(page);
+
+        const defaultSlotHeight = await getSlotHeight(page);
+        expect(defaultSlotHeight).toBeGreaterThan(0);
+
+        // Zooming out fits more hours on screen, so each slot gets shorter
+        await page.getByTestId('calendar-zoom-out').click();
+        await expect(async () => {
+            expect(await getSlotHeight(page)).toBeLessThan(defaultSlotHeight);
+        }).toPass({ timeout: 5000 });
+
+        const zoomedOutHeight = await getSlotHeight(page);
+
+        const storedZoomedOut = await page.evaluate(
+            () =>
+                JSON.parse(localStorage.getItem('solidtime:calendar-settings') || '{}')
+                    .pixelsPerHour
+        );
+        expect(storedZoomedOut).toBeLessThan(100);
+
+        // Zooming back in restores the original scale
+        await page.getByTestId('calendar-zoom-in').click();
+        await expect(async () => {
+            expect(await getSlotHeight(page)).toBeGreaterThan(zoomedOutHeight);
+        }).toPass({ timeout: 5000 });
+
+        // The zoom level survives a reload
+        const beforeReload = await getSlotHeight(page);
+        await page.reload();
+        await expect(page.locator('.fc')).toBeVisible();
+        expect(await getSlotHeight(page)).toBeCloseTo(beforeReload, 0);
+    });
+
+    test('zoom out is disabled once the whole day fits on screen', async ({ page }) => {
+        await clearCalendarSettings(page);
+        await goToCalendar(page);
+
+        const zoomOut = page.getByTestId('calendar-zoom-out');
+
+        // Each click adds an hour; 24 clicks is more than enough to fit a full day
+        for (let i = 0; i < 24; i++) {
+            if (await zoomOut.isDisabled()) break;
+            await zoomOut.click();
+        }
+
+        await expect(zoomOut).toBeDisabled();
+        await expect(page.getByTestId('calendar-zoom-in')).toBeEnabled();
+    });
+
     test('view switcher toggles between week and day views', async ({ page }) => {
         await goToCalendar(page);
 
@@ -561,8 +612,10 @@ test.describe('Calendar Settings Effects', () => {
         await expect(page.locator('.fc-timegrid-slot[data-time="08:00:00"]')).not.toHaveCount(0);
     });
 
-    test('grid scale affects event visual height proportionally', async ({ page, ctx }) => {
-        // Create a 1h time entry
+    test('grid scale changes line density without rescaling events', async ({ page, ctx }) => {
+        // Grid scale controls how finely each hour is subdivided. The vertical
+        // scale belongs to the zoom buttons, so events keep their height when
+        // the grid scale changes.
         await createBareTimeEntryViaApi(ctx, 'Height test', '1h');
         await goToCalendar(page);
 
@@ -570,10 +623,10 @@ test.describe('Calendar Settings Effects', () => {
         await expect(event).toBeVisible();
         await event.scrollIntoViewIfNeeded();
 
-        // Get event height with default 15-min grid scale
         const box15 = await event.boundingBox();
         expect(box15).not.toBeNull();
         const height15 = box15!.height;
+        const slotCount15 = await page.locator('.fc-timegrid-slot-lane').count();
 
         // Change grid scale to 60 min
         await openSettingsPopover(page);
@@ -581,20 +634,17 @@ test.describe('Calendar Settings Effects', () => {
         await page.getByRole('option', { name: '1 hour' }).click();
         await page.keyboard.press('Escape');
 
-        // Wait for re-render and scroll event into view
-        await event.scrollIntoViewIfNeeded();
+        // Fewer grid lines...
         await expect(async () => {
-            const box = await event.boundingBox();
-            expect(box).not.toBeNull();
-            expect(box!.height).not.toBe(height15);
+            const count = await page.locator('.fc-timegrid-slot-lane').count();
+            expect(count).toBeLessThan(slotCount15);
         }).toPass({ timeout: 5000 });
 
+        // ...but the same hour scale, so the event is unchanged
+        await event.scrollIntoViewIfNeeded();
         const box60 = await event.boundingBox();
         expect(box60).not.toBeNull();
-        const height60 = box60!.height;
-
-        // Event should appear smaller with larger grid scale
-        expect(height15).toBeGreaterThan(height60);
+        expect(box60!.height).toBeCloseTo(height15, 0);
     });
 
     test('snap interval affects drag granularity', async ({ page, ctx }) => {

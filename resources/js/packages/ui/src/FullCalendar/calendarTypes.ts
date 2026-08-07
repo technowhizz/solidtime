@@ -3,7 +3,6 @@ import type { Dayjs } from 'dayjs';
 import type { ActivityPeriod } from './activityTypes';
 import type { LaidOutEvent } from './eventLayout';
 
-export const SLOT_HEIGHT = 25;
 export const DRAG_THRESHOLD = 5;
 export const TIME_AXIS_WIDTH = 48;
 

@@ -3,8 +3,9 @@ import type { Dayjs } from 'dayjs';
 import type { TimeEntry } from '@/packages/api/src';
 import { getLocalizedDayJs, getLocalizedDayJsFromMinutes } from '../utils/time';
 import type { CalendarSettings } from './calendarSettings';
+import { pixelsToMinutesFor } from './calendarSettings';
 import type { CalendarEvent, DayEvent } from './calendarTypes';
-import { SLOT_HEIGHT, DRAG_THRESHOLD } from './calendarTypes';
+import { DRAG_THRESHOLD } from './calendarTypes';
 import { createEscapeCancel } from './escapeCancel';
 
 export function useEventDrag(params: {
@@ -87,7 +88,7 @@ export function useEventDrag(params: {
         dragOriginalHeight.value = dayEvent.height;
 
         const s = params.calendarSettings.value;
-        dragVisibleDurationMinutes.value = (dayEvent.height / SLOT_HEIGHT) * s.slotMinutes;
+        dragVisibleDurationMinutes.value = pixelsToMinutesFor(s, dayEvent.height);
 
         const originDay = params.getDayFromClientX(e.clientX);
         dragOriginalDayStr.value = originDay;
@@ -104,7 +105,7 @@ export function useEventDrag(params: {
             const dayMidnight = getLocalizedDayJsFromMinutes(originDay, 0);
             const evStart = getLocalizedDayJs(ev.timeEntry.start);
             const eventStartFromGridStart = evStart.diff(dayMidnight, 'minute') - s.startHour * 60;
-            const segmentTopMinutes = (dayEvent.top / SLOT_HEIGHT) * s.slotMinutes;
+            const segmentTopMinutes = pixelsToMinutesFor(s, dayEvent.top);
             dragEventStartOffsetMinutes = segmentTopMinutes - eventStartFromGridStart;
         } else {
             dragEventStartOffsetMinutes = 0;
@@ -233,7 +234,7 @@ export function useEventDrag(params: {
         const s = params.calendarSettings.value;
         const gridTotalMinutes = (s.endHour - s.startHour) * 60;
         const startMin = s.startHour * 60;
-        const currentTopMinutes = (dragCurrentTop.value / SLOT_HEIGHT) * s.slotMinutes;
+        const currentTopMinutes = pixelsToMinutesFor(s, dragCurrentTop.value);
 
         const offset =
             dragCurrentDay.value === dragOriginalDayStr.value ? dragEventStartOffsetMinutes : 0;

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { Dayjs } from 'dayjs';
 import { getLocalizedDayJs } from '../utils/time';
 import type { CalendarSettings } from './calendarSettings';
+import { DEFAULT_PIXELS_PER_HOUR } from './calendarSettings';
 import type { ExternalCalendarEvent } from './externalCalendarTypes';
 import { useExternalEventBoxes } from './useExternalEventBoxes';
 
@@ -36,6 +37,7 @@ function boxes(
         startHour: 0,
         endHour: 24,
         slotMinutes: SLOT_MINUTES,
+        pixelsPerHour: DEFAULT_PIXELS_PER_HOUR,
         ...settings,
     });
     const viewDays = computed<Dayjs[]>(() =>

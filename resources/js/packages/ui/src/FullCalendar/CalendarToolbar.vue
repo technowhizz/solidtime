@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Button } from '..';
-import { ChevronLeft, ChevronRight } from '@lucide/vue';
+import { ChevronLeft, ChevronRight, Minus, Plus } from '@lucide/vue';
 import { Tabs, TabsList } from '../tabs';
 import TabBarItem from '../TabBar/TabBarItem.vue';
 import CalendarSettingsPopover from './CalendarSettingsPopover.vue';
@@ -10,12 +10,16 @@ defineProps<{
     viewTitle: string;
     activeView: string;
     settings: CalendarSettings;
+    canZoomIn: boolean;
+    canZoomOut: boolean;
 }>();
 
 const emit = defineEmits<{
     prev: [];
     next: [];
     today: [];
+    'zoom-in': [];
+    'zoom-out': [];
     'change-view': [view: string];
     'update:settings': [value: CalendarSettings];
 }>();
@@ -42,6 +46,32 @@ const emit = defineEmits<{
                 <ChevronRight class="h-4 w-4" />
             </Button>
             <Button variant="outline" size="sm" @click="emit('today')"> today </Button>
+
+            <!-- Vertical zoom: each step shows one hour more or less -->
+            <div class="flex items-center gap-1 ml-1">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    class="h-8 w-8 p-0"
+                    aria-label="Zoom out"
+                    title="Zoom out (show one more hour)"
+                    data-testid="calendar-zoom-out"
+                    :disabled="!canZoomOut"
+                    @click="emit('zoom-out')">
+                    <Minus class="h-4 w-4" />
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    class="h-8 w-8 p-0"
+                    aria-label="Zoom in"
+                    title="Zoom in (show one hour less)"
+                    data-testid="calendar-zoom-in"
+                    :disabled="!canZoomIn"
+                    @click="emit('zoom-in')">
+                    <Plus class="h-4 w-4" />
+                </Button>
+            </div>
         </div>
 
         <!-- Center: Title -->

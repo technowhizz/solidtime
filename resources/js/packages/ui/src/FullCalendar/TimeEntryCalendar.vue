@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
     ref,
+    computed,
     watch,
     inject,
     type ComputedRef,
@@ -40,8 +41,10 @@ import {
 import { Coffee } from '@lucide/vue';
 import type { ActivityPeriod } from './activityTypes';
 import type { ExternalCalendarEvent } from './externalCalendarTypes';
-import { SLOT_HEIGHT, TIME_AXIS_WIDTH, type DayEvent } from './calendarTypes';
+import { TIME_AXIS_WIDTH, type DayEvent } from './calendarTypes';
+import { DEFAULT_PIXELS_PER_HOUR } from './calendarSettings';
 import { useCalendarGrid } from './useCalendarGrid';
+import { useCalendarZoom } from './useCalendarZoom';
 import { useCalendarNavigation } from './useCalendarNavigation';
 import { useCalendarEvents } from './useCalendarEvents';
 import { useActivityBoxes } from './useActivityBoxes';
@@ -116,6 +119,7 @@ const calendarSettings = useLocalStorage<CalendarSettings>(
         startHour: 0,
         endHour: 24,
         slotMinutes: 15,
+        pixelsPerHour: DEFAULT_PIXELS_PER_HOUR,
     },
     { mergeDefaults: true }
 );
@@ -132,6 +136,7 @@ const breaksEnabled = useBreaksEnabled();
 
 const {
     slots,
+    slotHeight,
     totalGridHeight,
     formatSlotLabel,
     minutesToPixels,
@@ -145,6 +150,15 @@ const { desiredScrollMinutes } = useCalendarScrollRestore({
     scrollerRef,
     pixelsToMinutesFromMidnight,
 });
+
+const { canZoomIn, canZoomOut, zoomIn, zoomOut } = useCalendarZoom({
+    calendarSettings,
+    scrollerRef,
+});
+
+// Keeps the hour label tucked under its grid line when zooming out shrinks
+// the slot below the fixed 8px offset that looks right at default zoom.
+const slotLabelPaddingTop = computed(() => Math.min(8, Math.max(1, slotHeight.value * 0.3)));
 
 const {
     activeView,
@@ -560,9 +574,13 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                 :view-title="viewTitle"
                 :active-view="activeView"
                 :settings="calendarSettings"
+                :can-zoom-in="canZoomIn"
+                :can-zoom-out="canZoomOut"
                 @prev="handlePrev"
                 @next="handleNext"
                 @today="handleToday"
+                @zoom-in="zoomIn"
+                @zoom-out="zoomOut"
                 @change-view="handleChangeView"
                 @update:settings="onSettingsUpdate" />
 
@@ -618,13 +636,16 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                                     <div
                                         v-for="slot in slots"
                                         :key="slot.time"
-                                        class="fc-timegrid-slot fc-timegrid-slot-label relative text-right border-t border-border pr-1.5 pt-2 box-border"
+                                        class="fc-timegrid-slot fc-timegrid-slot-label relative text-right border-t border-border pr-1.5 box-border"
                                         :class="{
                                             'fc-timegrid-slot-minor border-t-transparent':
                                                 !slot.isHour,
                                         }"
                                         :data-time="slot.time"
-                                        :style="{ height: SLOT_HEIGHT + 'px' }">
+                                        :style="{
+                                            height: slotHeight + 'px',
+                                            paddingTop: slotLabelPaddingTop + 'px',
+                                        }">
                                         <span
                                             v-if="slot.isHour"
                                             class="fc-timegrid-slot-label-cushion text-[0.8125rem] text-muted-foreground leading-none block font-light">
@@ -666,7 +687,7 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                                                     !slot.isHour,
                                             }"
                                             :data-time="slot.time"
-                                            :style="{ height: SLOT_HEIGHT + 'px' }"></div>
+                                            :style="{ height: slotHeight + 'px' }"></div>
                                     </div>
                                     <div
                                         class="grid absolute inset-0 pointer-events-none min-w-0"
