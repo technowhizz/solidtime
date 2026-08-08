@@ -234,7 +234,7 @@ const emit = defineEmits<{
                     class="fc-external-event-copy opacity-0 group-hover/external:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     aria-label="Copy as time entry"
                     @click.stop="emit('external-event-copy', box.event)">
-                    <DocumentDuplicateIcon class="w-3 h-3" />
+                    <DocumentDuplicateIcon class="w-3.5 h-3.5" />
                 </button>
             </div>
         </div>
@@ -636,7 +636,6 @@ const emit = defineEmits<{
 
 .fc-external-event-title {
     padding: 2px 4px;
-    padding-right: 16px;
     font-size: 10px;
     line-height: 1.2;
     overflow: hidden;
@@ -646,17 +645,28 @@ const emit = defineEmits<{
 
 .fc-external-event-copy {
     position: absolute;
-    top: 1px;
-    right: 1px;
+    bottom: 2px;
+    left: 2px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 1px;
-    border-radius: 3px;
+    padding: 4px;
+    border-radius: 4px;
     background-color: var(--theme-color-default-background);
     color: var(--color-text-secondary);
     cursor: pointer;
     transition: opacity 0.15s ease;
+}
+
+/*
+ * Extends the grab area past the visible chip so the button is forgiving to click without
+ * drawing a larger control. The event box clips its own overflow, so this buys room up and
+ * to the right — the directions with space — rather than off the edge of the box.
+ */
+.fc-external-event-copy::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
 }
 
 /* Breaks get a hatched texture so they can not be confused with a project color */

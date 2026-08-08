@@ -272,6 +272,16 @@ test.describe('Google Calendar events on the calendar', () => {
         await expect
             .poll(async () => copyButton.evaluate((el) => getComputedStyle(el).opacity))
             .toBe('1');
+
+        // Anchored to the bottom left of the event, and big enough to be an easy target
+        const eventBox = (await event.boundingBox())!;
+        const buttonBox = (await copyButton.boundingBox())!;
+        expect(buttonBox.x - eventBox.x).toBeLessThanOrEqual(6);
+        expect(eventBox.y + eventBox.height - (buttonBox.y + buttonBox.height)).toBeLessThanOrEqual(
+            6
+        );
+        expect(buttonBox.width).toBeGreaterThanOrEqual(20);
+        expect(buttonBox.height).toBeGreaterThanOrEqual(20);
     });
 
     test('clicking the copy button creates a time entry titled with the event', async ({
