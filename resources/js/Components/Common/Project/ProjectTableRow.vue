@@ -16,6 +16,7 @@ import { useProjectsStore } from '@/utils/useProjects';
 import TableRow from '@/Components/TableRow.vue';
 import ProjectEditModal from '@/Components/Common/Project/ProjectEditModal.vue';
 import { formatCents } from '@/packages/ui/src/utils/money';
+import { opaqueColor, withAlpha } from '@/packages/ui/src/utils/color';
 import { getOrganizationCurrencyString } from '@/utils/money';
 import EstimatedTimeProgress from '@/packages/ui/src/EstimatedTimeProgress.vue';
 import UpgradeBadge from '@/Components/Common/UpgradeBadge.vue';
@@ -91,8 +92,8 @@ const showEditProjectModal = ref(false);
                     class="whitespace-nowrap min-w-0 flex items-center space-x-5 3xl:pl-12 py-4 pr-3 text-sm font-medium text-text-primary pl-4 sm:pl-6 lg:pl-8 3xl:pl-12">
                     <div
                         :style="{
-                            backgroundColor: project.color,
-                            boxShadow: `var(--tw-ring-inset) 0 0 0 calc(4px + var(--tw-ring-offset-width)) ${project.color}30`,
+                            backgroundColor: opaqueColor(project.color),
+                            boxShadow: `var(--tw-ring-inset) 0 0 0 calc(4px + var(--tw-ring-offset-width)) ${withAlpha(project.color, 0.19)}`,
                         }"
                         class="w-3 h-3 rounded-full"></div>
                     <span class="overflow-ellipsis overflow-hidden">

@@ -3,6 +3,7 @@ import ProjectBadge from '@/packages/ui/src/Project/ProjectBadge.vue';
 import TimeTrackerStartStop from '@/packages/ui/src/TimeTrackerStartStop.vue';
 import { useProjectsQuery } from '@/utils/useProjectsQuery';
 import { computed } from 'vue';
+import { getNoProjectColor } from '@/packages/ui/src/utils/settings';
 import { useCurrentTimeEntryStore } from '@/utils/useCurrentTimeEntry';
 import { storeToRefs } from 'pinia';
 import { getDayJsInstance } from '@/packages/ui/src/utils/time';
@@ -51,7 +52,10 @@ async function startTaskTimer() {
                 <span v-if="timeEntry.description"> {{ timeEntry.description }}</span>
                 <span v-else class="text-text-secondary">No description</span>
             </p>
-            <ProjectBadge size="base" class="min-w-0 max-w-full" :color="project?.color">
+            <ProjectBadge
+                size="base"
+                class="min-w-0 max-w-full"
+                :color="project?.color ?? getNoProjectColor()">
                 <div class="flex items-center lg:space-x-0.5 min-w-0">
                     <span class="whitespace-nowrap">
                         {{ project?.name ?? 'No Project' }}

@@ -94,6 +94,7 @@ export interface User {
     timezone: string;
     week_start: string;
     calendar_week_days: number;
+    no_project_color: string;
     // mutators
     profile_photo_url: string;
     // relations

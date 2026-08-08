@@ -40,6 +40,34 @@ export function getCalendarWeekDays(): number {
     }
     return value;
 }
+/**
+ * Color used to stand in for "no project". Matches the grey the calendar hardcoded before this
+ * became a user setting.
+ */
+export const DEFAULT_NO_PROJECT_COLOR = '#6b7280';
+
+const HEX_COLOR = /^#[0-9a-f]{6}([0-9a-f]{2})?$/i;
+
+/**
+ * Like getCalendarWeekDays this falls back instead of throwing, and for the same reason: a
+ * session whose shared Inertia props predate the deploy should degrade to the old grey rather
+ * than white-screen the calendar. The value is validated because it is handed to chroma, which
+ * throws on anything it cannot parse.
+ *
+ * Note this reads the Inertia shared props, which Inertia restores from `history.state` on
+ * back/forward without asking the server. A page that was already open when the color changed
+ * therefore keeps the old one until it is reloaded — the same as `week_start`, `timezone` and
+ * `calendar_week_days`, which all come through this mechanism. The settings form says so.
+ */
+export function getNoProjectColor(): string {
+    const value = window?.getNoProjectColorSetting?.();
+
+    if (typeof value !== 'string' || !HEX_COLOR.test(value)) {
+        return DEFAULT_NO_PROJECT_COLOR;
+    }
+    return value.toLowerCase();
+}
+
 export function getUserTimezone() {
     const timezone = window?.getTimezoneSetting() as string;
     if (!timezone) {

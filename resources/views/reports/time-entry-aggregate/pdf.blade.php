@@ -186,8 +186,10 @@
                 @foreach($aggregatedData['grouped_data'] as $group1Entry)
                     <tr>
                         <td style="display: flex; align-items: center;">
+                            {{-- The null-key fallback stands in for whatever the grouping is, so
+                                 only the project grouping uses the user's no-project color. --}}
                             <div style="width: 12px; height: 12px; border-radius: 50%; background-color: {{
-                        $group1Entry['color'] ?? ($group1Entry['key'] ? $colorService->getRandomColor($group1Entry['key']) : '#CCCCCC')
+                        $group1Entry['color'] ?? ($group1Entry['key'] ? $colorService->getRandomColor($group1Entry['key']) : ($group->is(\App\Enums\TimeEntryAggregationType::Project) ? $noProjectColor : '#CCCCCC'))
  }};">
                             </div>
                             <span style="padding-left: 8px;">

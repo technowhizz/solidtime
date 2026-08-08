@@ -3,10 +3,14 @@ import chroma from 'chroma-js';
 import type { Dayjs } from 'dayjs';
 import type { TimeEntry, Project, Client, Task } from '@/packages/api/src';
 import { getBreakPlacementHint } from '../utils/breakPlacement';
+import { flattenColor } from '../utils/color';
+import { getNoProjectColor } from '../utils/settings';
 import { getDayJsInstance, getLocalizedDayJs } from '../utils/time';
 import type { CalendarSettings } from './calendarSettings';
 import type { CalendarEvent, DayEvent } from './calendarTypes';
 import { layoutDayEvents } from './eventLayout';
+
+const BREAK_COLOR = '#f59e0b';
 
 export function useCalendarEvents(params: {
     timeEntries: () => TimeEntry[];
@@ -24,6 +28,7 @@ export function useCalendarEvents(params: {
 
     const calendarEvents = computed<CalendarEvent[]>(() => {
         const themeBackground = params.cssBackground.value?.trim();
+        const noProjectColor = getNoProjectColor();
         const allEntries = params.timeEntries();
         return allEntries.map((rawEntry) => {
             const timeEntry = optimisticOverrides.value.get(rawEntry.id) || rawEntry;
@@ -50,7 +55,15 @@ export function useCalendarEvents(params: {
             } else {
                 title = timeEntry.description || 'No description';
             }
-            const baseColor = isBreak ? '#F59E0B' : project?.color || '#6B7280';
+            // Alpha means "washed out", not "translucent": the chip is already a mix toward the
+            // theme background, so passing an eight digit hex straight into chroma would emit an
+            // eight digit result and let the grid lines show through wherever chips stack.
+            // Compositing onto the background first honours the alpha and keeps the chip opaque,
+            // and is the identity for a fully opaque color, so nothing changes for existing data.
+            const baseColor = flattenColor(
+                isBreak ? BREAK_COLOR : project?.color || noProjectColor,
+                themeBackground
+            );
             const backgroundColor = chroma
                 .mix(baseColor, themeBackground, isBreak ? 0.75 : 0.65, 'lab')
                 .hex();

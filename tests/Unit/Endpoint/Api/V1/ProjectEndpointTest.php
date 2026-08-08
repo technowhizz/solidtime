@@ -496,6 +496,61 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
         ]);
     }
 
+    public function test_store_endpoint_creates_new_project_with_color_with_alpha_channel(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission([
+            'projects:create',
+        ]);
+        $projectFake = Project::factory()->forOrganization($data->organization)->make();
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->postJson(route('api.v1.projects.store', [$data->organization->getKey()]), [
+            'name' => $projectFake->name,
+            'color' => '#ef535080',
+            'client_id' => null,
+            'is_billable' => $projectFake->is_billable,
+        ]);
+
+        // Assert
+        $response->assertStatus(201);
+        $response->assertJson(fn (AssertableJson $json) => $json
+            ->has('data')
+            ->where('data.color', '#ef535080')
+            ->etc()
+        );
+        $this->assertDatabaseHas(Project::class, [
+            'name' => $projectFake->name,
+            'color' => '#ef535080',
+            'organization_id' => $projectFake->organization_id,
+        ]);
+    }
+
+    public function test_store_endpoint_fails_if_color_is_not_a_valid_color(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission([
+            'projects:create',
+        ]);
+        $projectFake = Project::factory()->forOrganization($data->organization)->make();
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->postJson(route('api.v1.projects.store', [$data->organization->getKey()]), [
+            'name' => $projectFake->name,
+            'color' => '#EF5350',
+            'client_id' => null,
+            'is_billable' => $projectFake->is_billable,
+        ]);
+
+        // Assert
+        $response->assertInvalid(['color']);
+        $this->assertDatabaseMissing(Project::class, [
+            'name' => $projectFake->name,
+        ]);
+    }
+
     public function test_store_endpoint_ignores_estimated_time_if_pro_features_are_disabled(): void
     {
         // Arrange
@@ -1181,6 +1236,35 @@ class ProjectEndpointTest extends ApiEndpointTestAbstract
         $this->assertSame($projectFake->color, $project->color);
         $this->assertSame($client->getKey(), $project->client_id);
         $this->assertFalse($project->is_archived);
+    }
+
+    public function test_update_endpoint_can_update_color_to_color_with_alpha_channel(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission([
+            'projects:update',
+        ]);
+        $project = Project::factory()->forOrganization($data->organization)->create();
+        $this->assertBillableRateServiceIsUnused();
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->putJson(route('api.v1.projects.update', [$data->organization->getKey(), $project->getKey()]), [
+            'name' => $project->name,
+            'color' => '#26a69a4d',
+            'is_billable' => $project->is_billable,
+            'client_id' => null,
+        ]);
+
+        // Assert
+        $response->assertStatus(200);
+        $project->refresh();
+        $response->assertJson(fn (AssertableJson $json) => $json
+            ->has('data')
+            ->where('data.color', '#26a69a4d')
+            ->etc()
+        );
+        $this->assertSame('#26a69a4d', $project->color);
     }
 
     public function test_update_endpoint_can_make_a_private_project_public(): void

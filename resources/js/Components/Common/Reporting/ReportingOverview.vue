@@ -47,6 +47,7 @@ import { useSessionStorage, useStorage } from '@vueuse/core';
 import { useNotificationsStore } from '@/utils/notification';
 import type { ExportFormat } from '@/types/reporting';
 import { getRandomColorWithSeed } from '@/packages/ui/src/utils/color';
+import { getNoProjectColor } from '@/packages/ui/src/utils/settings';
 import { useProjectsQuery } from '@/utils/useProjectsQuery';
 import { useAggregatedTimeEntriesQuery } from '@/utils/useAggregatedTimeEntriesQuery';
 import type { TagMatchType } from '@/types/reporting';
@@ -252,8 +253,11 @@ const groupedPieChartData = computed(() => {
             ) {
                 color = '#CCCCCC';
             } else if (aggregatedTableTimeEntries.value?.grouped_type === 'project') {
+                // Only the project grouping falls back to the user's no-project color; the
+                // branch above is the generic "No client"/"No task"/"No member" placeholder.
                 color =
-                    projects.value?.find((project) => project.id === entry.key)?.color ?? '#CCCCCC';
+                    projects.value?.find((project) => project.id === entry.key)?.color ??
+                    getNoProjectColor();
             }
             return {
                 value: entry.seconds,

@@ -31,7 +31,11 @@ class ColorService
         '#78909c',
     ];
 
-    private const string VALID_REGEX = '/^#[0-9a-f]{6}$/';
+    /**
+     * Lowercase hex, either `#rrggbb` or `#rrggbbaa`. The alpha channel is optional so that
+     * existing six digit colors stay valid and keep matching self::COLORS literally.
+     */
+    private const string VALID_REGEX = '/^#[0-9a-f]{6}([0-9a-f]{2})?$/';
 
     public function isBuiltInColor(string $color): bool
     {

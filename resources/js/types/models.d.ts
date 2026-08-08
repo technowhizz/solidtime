@@ -77,6 +77,7 @@ export interface User {
     timezone: string;
     week_start: string;
     calendar_week_days: number;
+    no_project_color: string;
     profile_photo_url: string;
     organizations: Organization[];
     clients: Client[];

@@ -46,6 +46,7 @@ class UserEndpointTest extends ApiEndpointTestAbstract
                 'timezone' => $data->user->timezone,
                 'week_start' => $data->user->week_start->value,
                 'calendar_week_days' => $data->user->calendar_week_days,
+                'no_project_color' => $data->user->no_project_color,
             ],
         ]);
     }
@@ -144,6 +145,7 @@ class UserEndpointTest extends ApiEndpointTestAbstract
             'timezone' => 'America/New_York',
             'week_start' => Weekday::Sunday->value,
             'calendar_week_days' => 5,
+            'no_project_color' => '#ff7043',
         ]);
 
         // Assert
@@ -155,6 +157,7 @@ class UserEndpointTest extends ApiEndpointTestAbstract
                 'timezone' => 'America/New_York',
                 'week_start' => Weekday::Sunday->value,
                 'calendar_week_days' => 5,
+                'no_project_color' => '#ff7043',
             ],
         ]);
 
@@ -163,6 +166,71 @@ class UserEndpointTest extends ApiEndpointTestAbstract
         $this->assertSame('America/New_York', $user->timezone);
         $this->assertSame(Weekday::Sunday, $user->week_start);
         $this->assertSame(5, $user->calendar_week_days);
+        $this->assertSame('#ff7043', $user->no_project_color);
+    }
+
+    public function test_update_changes_no_project_color_to_a_color_with_alpha_channel(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission();
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->putJson(route('api.v1.users.update', $data->user->getKey()), [
+            'no_project_color' => '#ff704380',
+        ]);
+
+        // Assert
+        $response->assertSuccessful();
+        $this->assertSame('#ff704380', $data->user->fresh()->no_project_color);
+    }
+
+    public function test_update_normalizes_an_uppercase_no_project_color(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission();
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->putJson(route('api.v1.users.update', $data->user->getKey()), [
+            'no_project_color' => '#FF7043',
+        ]);
+
+        // Assert
+        $response->assertSuccessful();
+        $this->assertSame('#ff7043', $data->user->fresh()->no_project_color);
+    }
+
+    public function test_update_fails_if_no_project_color_is_not_a_valid_color(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission();
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->putJson(route('api.v1.users.update', $data->user->getKey()), [
+            'no_project_color' => 'red',
+        ]);
+
+        // Assert
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors(['no_project_color']);
+    }
+
+    public function test_update_fails_if_no_project_color_is_not_a_string(): void
+    {
+        // Arrange
+        $data = $this->createUserWithPermission();
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->putJson(route('api.v1.users.update', $data->user->getKey()), [
+            'no_project_color' => 123,
+        ]);
+
+        // Assert
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors(['no_project_color']);
     }
 
     public function test_update_does_not_change_user_fields_that_are_not_given(): void
@@ -173,6 +241,7 @@ class UserEndpointTest extends ApiEndpointTestAbstract
         $data->user->timezone = 'Europe/Vienna';
         $data->user->week_start = Weekday::Monday;
         $data->user->calendar_week_days = 4;
+        $data->user->no_project_color = '#26a69a';
         $data->user->save();
         Passport::actingAs($data->user);
 
@@ -188,6 +257,7 @@ class UserEndpointTest extends ApiEndpointTestAbstract
                 'timezone' => 'Europe/Vienna',
                 'week_start' => Weekday::Monday->value,
                 'calendar_week_days' => 4,
+                'no_project_color' => '#26a69a',
             ],
         ]);
 
@@ -196,6 +266,7 @@ class UserEndpointTest extends ApiEndpointTestAbstract
         $this->assertSame('Europe/Vienna', $user->timezone);
         $this->assertSame(Weekday::Monday, $user->week_start);
         $this->assertSame(4, $user->calendar_week_days);
+        $this->assertSame('#26a69a', $user->no_project_color);
     }
 
     public function test_update_email_stores_pending_email_and_sends_verification_email(): void

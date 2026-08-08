@@ -334,7 +334,7 @@ class DashboardService
                 'value' => $aggregateOther,
                 'id' => null,
                 'name' => 'No project',
-                'color' => '#cccccc',
+                'color' => $user->no_project_color,
             ];
 
         }

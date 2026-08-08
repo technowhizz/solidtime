@@ -22,6 +22,8 @@ import { isAllowedToPerformPremiumAction } from '@/utils/billing';
 import { canCreateProjects } from '@/utils/permissions';
 import { useOrganizationQuery } from '@/utils/useOrganizationQuery';
 import { getCurrentOrganizationId } from '@/utils/useUser';
+import { opaqueColor } from '@/packages/ui/src/utils/color';
+import { getNoProjectColor } from '@/packages/ui/src/utils/settings';
 
 const { organization } = useOrganizationQuery(getCurrentOrganizationId()!);
 const searchValue = ref('');
@@ -91,7 +93,7 @@ const selectedProjectName = computed(() => {
 });
 
 const selectedProjectColor = computed(() => {
-    return currentProject.value?.color || 'var(--theme-color-icon-default)';
+    return opaqueColor(currentProject.value?.color || getNoProjectColor());
 });
 
 function updateValue(project: Project) {
@@ -144,7 +146,7 @@ function updateValue(project: Project) {
                                     :data-project-id="project.id">
                                     <span class="flex min-w-0 flex-1 items-center gap-2">
                                         <span
-                                            :style="{ backgroundColor: project.color }"
+                                            :style="{ backgroundColor: opaqueColor(project.color) }"
                                             class="w-3 h-3 rounded-full shrink-0"></span>
                                         <span class="truncate">{{ project.name }}</span>
                                     </span>

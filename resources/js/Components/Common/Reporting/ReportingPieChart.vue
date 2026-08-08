@@ -12,6 +12,7 @@ import {
 } from 'echarts/components';
 import { formatReportingDuration } from '@/packages/ui/src/utils/time';
 import { useCssVariable } from '@/packages/ui/src';
+import { opaqueColor, withAlpha } from '@/packages/ui/src/utils/color';
 import type { Organization } from '@/packages/api/src';
 
 use([CanvasRenderer, PieChart, TitleComponent, GridComponent, TooltipComponent, LegendComponent]);
@@ -37,11 +38,11 @@ const seriesData = computed(() => {
             ...el,
             ...{
                 itemStyle: {
-                    color: `${el.color}BB`,
+                    color: withAlpha(el.color, 0.733),
                 },
                 emphasis: {
                     itemStyle: {
-                        color: `${el.color}`,
+                        color: opaqueColor(el.color),
                     },
                 },
             },

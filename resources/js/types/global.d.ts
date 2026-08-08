@@ -12,6 +12,7 @@ declare global {
         getWeekStartSetting: () => string;
         getTimezoneSetting: () => string;
         getCalendarWeekDaysSetting: () => number;
+        getNoProjectColorSetting: () => string;
     }
 
     let route: typeof ziggyRoute;

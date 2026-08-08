@@ -30,6 +30,150 @@ class ColorRuleTest extends TestCase
         $this->assertArrayNotHasKey('color', $messages);
     }
 
+    public function test_validation_passes_if_value_is_valid_color_with_alpha_channel(): void
+    {
+        // Arrange
+        $validator = Validator::make([
+            'color' => '#ef535080',
+        ], [
+            'color' => [new ColorRule],
+        ]);
+
+        // Act
+        $isValid = $validator->passes();
+        $messages = $validator->messages()->toArray();
+
+        // Assert
+        $this->assertTrue($isValid);
+        $this->assertArrayNotHasKey('color', $messages);
+    }
+
+    public function test_validation_passes_if_value_is_fully_opaque_color_with_alpha_channel(): void
+    {
+        // Arrange
+        $validator = Validator::make([
+            'color' => '#ef5350ff',
+        ], [
+            'color' => [new ColorRule],
+        ]);
+
+        // Act
+        $isValid = $validator->passes();
+        $messages = $validator->messages()->toArray();
+
+        // Assert
+        $this->assertTrue($isValid);
+        $this->assertArrayNotHasKey('color', $messages);
+    }
+
+    public function test_validation_passes_if_value_is_fully_transparent_color(): void
+    {
+        // Arrange
+        $validator = Validator::make([
+            'color' => '#ef535000',
+        ], [
+            'color' => [new ColorRule],
+        ]);
+
+        // Act
+        $isValid = $validator->passes();
+        $messages = $validator->messages()->toArray();
+
+        // Assert
+        $this->assertTrue($isValid);
+        $this->assertArrayNotHasKey('color', $messages);
+    }
+
+    public function test_validation_fails_if_value_is_uppercase_color(): void
+    {
+        // Arrange
+        $validator = Validator::make([
+            'color' => '#EF5350',
+        ], [
+            'color' => [new ColorRule],
+        ]);
+
+        // Act
+        $isValid = $validator->passes();
+        $messages = $validator->messages()->toArray();
+
+        // Assert
+        $this->assertFalse($isValid);
+        $this->assertEquals('The color field must be a valid color.', $messages['color'][0]);
+    }
+
+    public function test_validation_fails_if_value_is_shorthand_color(): void
+    {
+        // Arrange
+        $validator = Validator::make([
+            'color' => '#fff',
+        ], [
+            'color' => [new ColorRule],
+        ]);
+
+        // Act
+        $isValid = $validator->passes();
+        $messages = $validator->messages()->toArray();
+
+        // Assert
+        $this->assertFalse($isValid);
+        $this->assertEquals('The color field must be a valid color.', $messages['color'][0]);
+    }
+
+    public function test_validation_fails_if_value_has_seven_hex_digits(): void
+    {
+        // Arrange
+        $validator = Validator::make([
+            'color' => '#ef53508',
+        ], [
+            'color' => [new ColorRule],
+        ]);
+
+        // Act
+        $isValid = $validator->passes();
+        $messages = $validator->messages()->toArray();
+
+        // Assert
+        $this->assertFalse($isValid);
+        $this->assertEquals('The color field must be a valid color.', $messages['color'][0]);
+    }
+
+    public function test_validation_fails_if_value_has_nine_hex_digits(): void
+    {
+        // Arrange
+        $validator = Validator::make([
+            'color' => '#ef5350800',
+        ], [
+            'color' => [new ColorRule],
+        ]);
+
+        // Act
+        $isValid = $validator->passes();
+        $messages = $validator->messages()->toArray();
+
+        // Assert
+        $this->assertFalse($isValid);
+        $this->assertEquals('The color field must be a valid color.', $messages['color'][0]);
+    }
+
+    public function test_validation_fails_if_value_is_missing_the_leading_hash(): void
+    {
+        // Arrange
+        $validator = Validator::make([
+            'color' => 'ef5350',
+        ], [
+            'color' => [new ColorRule],
+        ]);
+
+        // Act
+        $isValid = $validator->passes();
+        $messages = $validator->messages()->toArray();
+
+        // Assert
+        $this->assertFalse($isValid);
+        $this->assertEquals('The color field must be a valid color.', $messages['color'][0]);
+    }
+
     public function test_validation_fails_if_value_is_not_a_string(): void
     {
         // Arrange

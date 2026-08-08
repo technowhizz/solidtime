@@ -38,6 +38,8 @@ class UserResource extends BaseResource
             'week_start' => $this->resource->week_start->value,
             /** @var int $calendar_week_days Number of days shown in the calendar week view (1-7) */
             'calendar_week_days' => $this->resource->calendar_week_days,
+            /** @var string $no_project_color Color used for time entries without a project (f.e. #6b7280 or #6b7280cc) */
+            'no_project_color' => $this->resource->no_project_color,
         ];
     }
 }

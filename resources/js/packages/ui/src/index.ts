@@ -3,6 +3,7 @@ declare global {
         getWeekStartSetting: () => string;
         getTimezoneSetting: () => string;
         getCalendarWeekDaysSetting: () => number;
+        getNoProjectColorSetting: () => string;
     }
 }
 

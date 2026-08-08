@@ -128,6 +128,10 @@ class UserController extends Controller
             $user->calendar_week_days = $request->getCalendarWeekDays();
         }
 
+        if ($request->getNoProjectColor() !== null) {
+            $user->no_project_color = $request->getNoProjectColor();
+        }
+
         $user->save();
 
         if ($emailToVerify !== null) {

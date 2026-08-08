@@ -9,6 +9,7 @@ import type { User } from '@/types/models';
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query';
 import { type DefineComponent } from 'vue';
 import { setupPrefetching } from '@/utils/prefetch';
+import { DEFAULT_NO_PROJECT_COLOR } from '@/packages/ui/src/utils/settings';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 const pinia = createPinia();
@@ -70,6 +71,14 @@ createInertiaApp({
                 };
             }>();
             return page.props.auth.user.calendar_week_days ?? 7;
+        };
+        window.getNoProjectColorSetting = function () {
+            const page = usePage<{
+                auth: {
+                    user: User;
+                };
+            }>();
+            return page.props.auth.user.no_project_color ?? DEFAULT_NO_PROJECT_COLOR;
         };
 
         app.use(plugin).use(pinia).use(ZiggyVue).use(VueQueryPlugin, { queryClient }).mount(el);

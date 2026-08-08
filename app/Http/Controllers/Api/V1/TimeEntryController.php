@@ -508,6 +508,7 @@ class TimeEntryController extends Controller
                 'debug' => $debug,
                 'localization' => $localizationService,
                 'showBillableRate' => $showBillableRate,
+                'noProjectColor' => $user->no_project_color,
             ]);
             $footerViewFile = file_get_contents(resource_path('views/reports/time-entry-aggregate/pdf-footer.blade.php'));
             if ($footerViewFile === false) {

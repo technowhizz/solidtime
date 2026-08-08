@@ -2,6 +2,8 @@
 import { ChevronRightIcon, ChevronDownIcon } from '@heroicons/vue/16/solid';
 import Dropdown from '@/packages/ui/src/Input/Dropdown.vue';
 import { computed, nextTick, ref, watch } from 'vue';
+import { opaqueColor } from '@/packages/ui/src/utils/color';
+import { getNoProjectColor } from '@/packages/ui/src/utils/settings';
 import { useVirtualizer } from '@tanstack/vue-virtual';
 import ProjectDropdownItem from '@/packages/ui/src/Project/ProjectDropdownItem.vue';
 import type {
@@ -217,7 +219,7 @@ function updateFilteredResults() {
                 {
                     id: NO_PROJECT_ID,
                     name: 'No Project',
-                    color: 'var(--theme-color-icon-default)',
+                    color: getNoProjectColor(),
                     value: NO_PROJECT_ID,
                     client_id: null,
                     billable_rate: null,
@@ -524,7 +526,7 @@ const selectedProjectName = computed(() => {
 });
 
 const selectedProjectColor = computed(() => {
-    return currentProject.value?.color || 'var(--theme-color-icon-default)';
+    return opaqueColor(currentProject.value?.color || getNoProjectColor());
 });
 
 const selectedClientName = computed(() => {

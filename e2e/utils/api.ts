@@ -827,12 +827,18 @@ export async function getCurrentUserViaApi(ctx: TestContext) {
         timezone: string;
         week_start: string;
         calendar_week_days: number;
+        no_project_color: string;
     };
 }
 
 export async function updateUserProfileViaApi(
     ctx: TestContext,
-    settings: { timezone?: string; week_start?: string; calendar_week_days?: number }
+    settings: {
+        timezone?: string;
+        week_start?: string;
+        calendar_week_days?: number;
+        no_project_color?: string;
+    }
 ) {
     const user = await getCurrentUserViaApi(ctx);
 
@@ -846,6 +852,9 @@ export async function updateUserProfileViaApi(
     }
     if (settings.calendar_week_days !== undefined) {
         data.calendar_week_days = settings.calendar_week_days;
+    }
+    if (settings.no_project_color !== undefined) {
+        data.no_project_color = settings.no_project_color;
     }
 
     const response = await ctx.request.put(`${PLAYWRIGHT_BASE_URL}/api/v1/users/${user.id}`, {

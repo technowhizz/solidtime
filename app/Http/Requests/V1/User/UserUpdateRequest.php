@@ -8,6 +8,7 @@ use App\Enums\Weekday;
 use App\Http\Requests\V1\BaseFormRequest;
 use App\Models\User;
 use App\Rules\Base64ImageRule;
+use App\Rules\ColorRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
@@ -24,6 +25,14 @@ class UserUpdateRequest extends BaseFormRequest
         if ($this->has('email') && is_string($this->input('email'))) {
             $this->merge([
                 'email' => Str::lower((string) $this->input('email')),
+            ]);
+        }
+
+        // ColorRule only accepts lowercase hex, and a color pasted out of a design tool is
+        // usually uppercase. Normalise rather than rejecting it with an opaque message.
+        if ($this->has('no_project_color') && is_string($this->input('no_project_color'))) {
+            $this->merge([
+                'no_project_color' => Str::lower((string) $this->input('no_project_color')),
             ]);
         }
     }
@@ -63,6 +72,9 @@ class UserUpdateRequest extends BaseFormRequest
                 'min:1',
                 'max:7',
             ],
+            'no_project_color' => [
+                new ColorRule,
+            ],
         ];
     }
 
@@ -89,6 +101,11 @@ class UserUpdateRequest extends BaseFormRequest
     public function getCalendarWeekDays(): ?int
     {
         return $this->has('calendar_week_days') ? (int) $this->input('calendar_week_days') : null;
+    }
+
+    public function getNoProjectColor(): ?string
+    {
+        return $this->has('no_project_color') ? (string) $this->input('no_project_color') : null;
     }
 
     public function hasPhotoKey(): bool

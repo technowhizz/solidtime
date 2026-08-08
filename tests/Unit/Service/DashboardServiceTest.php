@@ -329,7 +329,7 @@ class DashboardServiceTest extends TestCase
                 'value' => 80,
                 'id' => null,
                 'name' => 'No project',
-                'color' => '#cccccc',
+                'color' => $user->no_project_color,
             ],
         ], $result);
     }
@@ -371,7 +371,7 @@ class DashboardServiceTest extends TestCase
                 'value' => 80,
                 'id' => null,
                 'name' => 'No project',
-                'color' => '#cccccc',
+                'color' => $user->no_project_color,
             ],
         ], $result);
     }
@@ -397,7 +397,34 @@ class DashboardServiceTest extends TestCase
                 'value' => 0,
                 'id' => null,
                 'name' => 'No project',
-                'color' => '#cccccc',
+                'color' => $user->no_project_color,
+            ],
+        ], $result);
+    }
+
+    public function test_weekly_project_overview_uses_the_users_no_project_color(): void
+    {
+        // Arrange
+        // Note: Is a Monday
+        $this->travelTo(Carbon::create(2024, 1, 1, 12, 0, 0, 'Europe/Vienna'));
+        $organization = Organization::factory()->create();
+        $user = User::factory()->create([
+            'timezone' => 'Europe/Vienna',
+            'week_start' => Weekday::Sunday,
+            'no_project_color' => '#ff7043',
+        ]);
+        Member::factory()->forUser($user)->forOrganization($organization)->create();
+
+        // Act
+        $result = $this->dashboardService->weeklyProjectOverview($user, $organization);
+
+        // Assert
+        $this->assertSame([
+            [
+                'value' => 0,
+                'id' => null,
+                'name' => 'No project',
+                'color' => '#ff7043',
             ],
         ], $result);
     }

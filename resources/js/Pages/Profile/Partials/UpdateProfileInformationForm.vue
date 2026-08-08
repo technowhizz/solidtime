@@ -8,6 +8,8 @@ import { Button } from '@/packages/ui/src/Buttons';
 import PrimaryButton from '@/packages/ui/src/Buttons/PrimaryButton.vue';
 import SecondaryButton from '@/packages/ui/src/Buttons/SecondaryButton.vue';
 import TextInput from '@/packages/ui/src/Input/TextInput.vue';
+import ProjectColorSelector from '@/packages/ui/src/Project/ProjectColorSelector.vue';
+import { DEFAULT_NO_PROJECT_COLOR } from '@/packages/ui/src/utils/settings';
 import {
     useResendUserEmailVerificationMutation,
     useResetUserPendingEmailMutation,
@@ -27,6 +29,11 @@ const email = ref('');
 const timezone = ref('');
 const weekStart = ref('');
 const calendarWeekDays = ref(7);
+const noProjectColor = ref(DEFAULT_NO_PROJECT_COLOR);
+// The color this page loaded with. Pages already open keep reading the color from the Inertia
+// props they were rendered with, so once this diverges they need a refresh — and they still do
+// after saving, which is why this is not compared against the freshly saved user.
+const initialNoProjectColor = ref<string | null>(null);
 
 // The calendar week view renders this many columns, starting at `weekStart`.
 const calendarWeekDayOptions = [1, 2, 3, 4, 5, 6, 7];
@@ -45,6 +52,10 @@ function seedForm(u: User) {
     timezone.value = u.timezone;
     weekStart.value = u.week_start;
     calendarWeekDays.value = u.calendar_week_days ?? 7;
+    noProjectColor.value = u.no_project_color ?? DEFAULT_NO_PROJECT_COLOR;
+    if (initialNoProjectColor.value === null) {
+        initialNoProjectColor.value = noProjectColor.value;
+    }
 }
 
 watch(
@@ -62,6 +73,11 @@ const hasUploadedPhoto = computed(() => {
     const url = user.value?.profile_photo_url;
     return !!url && !url.includes('ui-avatars.com');
 });
+
+const noProjectColorChanged = computed(
+    () =>
+        initialNoProjectColor.value !== null && noProjectColor.value !== initialNoProjectColor.value
+);
 
 const fieldErrors = computed<Record<string, string>>(() =>
     getApiValidationFieldErrors(updateUser.error.value)
@@ -85,6 +101,9 @@ function buildPayload(): UpdateUserBody {
     }
     if (calendarWeekDays.value !== user.value.calendar_week_days) {
         body.calendar_week_days = calendarWeekDays.value;
+    }
+    if (noProjectColor.value !== user.value.no_project_color) {
+        body.no_project_color = noProjectColor.value;
     }
     if (photoBase64.value !== null) body.photo = photoBase64.value;
     return body;
@@ -359,6 +378,20 @@ const page = usePage<{
                 </p>
                 <FieldError v-if="fieldErrors.calendar_week_days">
                     {{ fieldErrors.calendar_week_days }}
+                </FieldError>
+            </Field>
+
+            <!-- Color for time without a project -->
+            <Field class="col-span-6 sm:col-span-4">
+                <FieldLabel for="no_project_color">Color for time without a project</FieldLabel>
+                <ProjectColorSelector v-model="noProjectColor" />
+                <p
+                    v-if="noProjectColorChanged"
+                    class="mt-2 text-sm font-bold text-accent-600 dark:text-accent-400">
+                    Refresh the page for changes to show
+                </p>
+                <FieldError v-if="fieldErrors.no_project_color">
+                    {{ fieldErrors.no_project_color }}
                 </FieldError>
             </Field>
         </template>

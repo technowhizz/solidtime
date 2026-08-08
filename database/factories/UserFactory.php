@@ -41,6 +41,7 @@ class UserFactory extends Factory
             'timezone' => 'Europe/Vienna',
             'week_start' => Weekday::Monday,
             'calendar_week_days' => 7,
+            'no_project_color' => '#6b7280',
         ];
     }
 

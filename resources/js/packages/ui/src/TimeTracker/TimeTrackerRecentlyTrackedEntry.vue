@@ -4,6 +4,7 @@ import type { TimeEntry } from '@/packages/api/src';
 import { twMerge } from 'tailwind-merge';
 import { ChevronRightIcon } from '@heroicons/vue/16/solid';
 import { computed } from 'vue';
+import { getNoProjectColor } from '@/packages/ui/src/utils/settings';
 import type { Project, Task } from '@/packages/api/src';
 
 const props = defineProps<{
@@ -40,7 +41,7 @@ const task = computed(() => {
         <span v-else class="text-sm text-text-tertiary font-medium flex-1"> No Description </span>
         <ProjectBadge
             ref="projectDropdownTrigger"
-            :color="project?.color"
+            :color="project?.color ?? getNoProjectColor()"
             :name="project?.name"
             class="shrink min-w-0 max-w-[50%]">
             <div v-if="project" class="flex items-center lg:space-x-1 min-w-0">

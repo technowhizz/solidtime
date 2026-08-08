@@ -10,6 +10,7 @@ declare global {
         getTimezoneSetting: () => string;
         getWeekStartSetting: () => string;
         getCalendarWeekDaysSetting: () => number;
+        getNoProjectColorSetting: () => string;
         getNumberFormat: () => string;
         getIntervalFormat: () => string;
     }
@@ -18,6 +19,7 @@ declare global {
 window.getTimezoneSetting = vi.fn(() => 'UTC');
 window.getWeekStartSetting = vi.fn(() => 'monday');
 window.getCalendarWeekDaysSetting = vi.fn(() => 7);
+window.getNoProjectColorSetting = vi.fn(() => '#6b7280');
 window.getNumberFormat = vi.fn(() => 'point');
 window.getIntervalFormat = vi.fn(() => 'hours-minutes');
 

@@ -220,3 +220,24 @@ body {
         @apply bg-background text-foreground;
     }
 }
+
+@layer utilities {
+    /*
+     * Backdrop for anything showing a color that may be translucent — the color picker's
+     * trigger dot, its preview swatch. A mid grey pair reads as "no color behind this" in
+     * both themes without needing a theme specific override.
+     */
+    .bg-checkerboard {
+        background-image:
+            linear-gradient(45deg, rgba(128, 128, 128, 0.35) 25%, transparent 25%),
+            linear-gradient(-45deg, rgba(128, 128, 128, 0.35) 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, rgba(128, 128, 128, 0.35) 75%),
+            linear-gradient(-45deg, transparent 75%, rgba(128, 128, 128, 0.35) 75%);
+        background-size: 8px 8px;
+        background-position:
+            0 0,
+            0 4px,
+            4px -4px,
+            -4px 0px;
+    }
+}

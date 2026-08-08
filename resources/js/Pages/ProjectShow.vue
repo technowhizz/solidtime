@@ -25,6 +25,7 @@ import { TabBar, TabBarItem } from '@/packages/ui/src';
 import { useTasksQuery } from '@/utils/useTasksQuery';
 import ProjectEditModal from '@/Components/Common/Project/ProjectEditModal.vue';
 import { Badge } from '@/packages/ui/src';
+import { opaqueColor, withAlpha } from '@/packages/ui/src/utils/color';
 import { formatCents } from '../packages/ui/src/utils/money';
 import { getOrganizationCurrencyString } from '../utils/money';
 import { useOrganizationQuery } from '@/utils/useOrganizationQuery';
@@ -100,8 +101,8 @@ const shownTasks = computed(() => {
                             <div class="flex space-x-3 items-center">
                                 <div
                                     :style="{
-                                        backgroundColor: project?.color,
-                                        boxShadow: `var(--tw-ring-inset) 0 0 0 calc(4px + var(--tw-ring-offset-width)) ${project?.color}30`,
+                                        backgroundColor: opaqueColor(project?.color ?? ''),
+                                        boxShadow: `var(--tw-ring-inset) 0 0 0 calc(4px + var(--tw-ring-offset-width)) ${withAlpha(project?.color ?? '', 0.19)}`,
                                     }"
                                     class="w-3 h-3 rounded-full"></div>
                                 <span>{{ project?.name }}</span>

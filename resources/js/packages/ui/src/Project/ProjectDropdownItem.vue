@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { opaqueColor } from '@/packages/ui/src/utils/color';
+
 defineProps<{
     name: string;
     selected: boolean;
@@ -10,7 +12,9 @@ defineProps<{
     <div
         class="flex justify-between items-center w-full text-start text-sm font-medium leading-5 text-text-primary hover:bg-card-background-active focus:outline-none focus:bg-card-background-active transition duration-150 ease-in-out">
         <div class="flex space-x-3 items-center px-3 py-1.5 min-w-0">
-            <div :style="{ backgroundColor: color }" class="w-3 h-3 rounded-full shrink-0"></div>
+            <div
+                :style="{ backgroundColor: opaqueColor(color) }"
+                class="w-3 h-3 rounded-full shrink-0"></div>
             <span class="truncate">{{ name }}</span>
         </div>
         <slot name="actions"></slot>
