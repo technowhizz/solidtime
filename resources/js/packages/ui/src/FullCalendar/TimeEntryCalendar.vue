@@ -385,7 +385,7 @@ function scrollToCurrentTimeNow() {
         ? oneHourBefore.hour() * 60 + oneHourBefore.minute()
         : now.hour() * 60 + now.minute();
 
-    // Navigating deliberately drops whatever position was remembered
+    // Jumping to today deliberately drops whatever position was remembered
     desiredScrollMinutes.value = targetMinutes;
     scrollToMinutesNow(targetMinutes);
 }

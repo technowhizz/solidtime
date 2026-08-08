@@ -92,7 +92,6 @@ export function useCalendarNavigation(callbacks: {
             currentDate.value = currentDate.value.subtract(1, 'day');
         }
         emitDatesChange();
-        callbacks.scrollToCurrentTime();
     }
 
     function handleNext() {
@@ -102,9 +101,11 @@ export function useCalendarNavigation(callbacks: {
             currentDate.value = currentDate.value.add(1, 'day');
         }
         emitDatesChange();
-        callbacks.scrollToCurrentTime();
     }
 
+    // The only navigation that deliberately re-anchors the viewport: paging and switching
+    // views change which days are shown and nothing else, but "today" means now, so it
+    // moves vertically as well as horizontally.
     function handleToday() {
         currentDate.value = getLocalizedDayJs();
         emitDatesChange();
@@ -114,7 +115,6 @@ export function useCalendarNavigation(callbacks: {
     function handleChangeView(view: string) {
         activeView.value = view;
         emitDatesChange();
-        callbacks.scrollToCurrentTime();
     }
 
     return {

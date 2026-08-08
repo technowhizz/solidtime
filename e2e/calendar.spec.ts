@@ -2663,6 +2663,60 @@ test.describe('Data Loading & Navigation', () => {
         await expect(page.locator('.fc-col-header-cell')).toHaveCount(7);
         await expect(getCalendarTitle(page)).toHaveText(currentWeekTitle ?? '');
     });
+
+    test('scroll position is preserved when paging to another week and back', async ({ page }) => {
+        await goToCalendar(page);
+        await waitForCalendarGrid(page);
+        await scrollCalendarToTime(page, '20:00:00');
+
+        const before = await getCalendarScrollTop(page);
+        expect(before).toBeGreaterThan(0);
+
+        // Today's column leaving and re-entering the view proves the week actually moved
+        await page.getByRole('button', { name: 'Next' }).click();
+        await expect(page.locator('.fc-day-today')).toHaveCount(0);
+        await expectCalendarScrollNear(page, before);
+
+        await page.getByRole('button', { name: 'Previous' }).click();
+        await expect(page.locator('.fc-day-today').first()).toBeVisible();
+        await expectCalendarScrollNear(page, before);
+    });
+
+    test('scroll position is preserved when switching between the week and day views', async ({
+        page,
+    }) => {
+        await goToCalendar(page);
+        await waitForCalendarGrid(page);
+        await scrollCalendarToTime(page, '20:00:00');
+
+        const before = await getCalendarScrollTop(page);
+        expect(before).toBeGreaterThan(0);
+
+        await page.getByRole('tab', { name: 'day', exact: true }).click();
+        await expect(page.locator('.fc-col-header-cell')).toHaveCount(1);
+        await expectCalendarScrollNear(page, before);
+
+        await page.getByRole('tab', { name: 'week', exact: true }).click();
+        await expect(page.locator('.fc-col-header-cell')).toHaveCount(7);
+        await expectCalendarScrollNear(page, before);
+    });
+
+    test('the today button still returns the viewport to the current time', async ({ page }) => {
+        await goToCalendar(page);
+        await waitForCalendarGrid(page);
+        // Captured before any manual scrolling, so this is the "scroll to now" position
+        const defaultTop = await getCalendarScrollTop(page);
+
+        await scrollCalendarToTime(page, defaultTop > 1200 ? '00:00:00' : '23:00:00');
+        expect(Math.abs((await getCalendarScrollTop(page)) - defaultTop)).toBeGreaterThan(200);
+
+        await page.getByRole('button', { name: 'Next' }).click();
+        await expect(page.locator('.fc-day-today')).toHaveCount(0);
+
+        await page.getByRole('button', { name: 'today' }).click();
+        await expect(page.locator('.fc-day-today').first()).toBeVisible();
+        await expectCalendarScrollNear(page, defaultTop);
+    });
 });
 
 // =============================================

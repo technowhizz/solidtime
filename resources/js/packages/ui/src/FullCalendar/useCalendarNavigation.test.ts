@@ -23,12 +23,13 @@ function localDate(date: string): Dayjs {
 
 function navigation(initialDate?: string) {
     const onDatesChange = vi.fn();
+    const scrollToCurrentTime = vi.fn();
     const nav = useCalendarNavigation({
         onDatesChange,
-        scrollToCurrentTime: () => {},
+        scrollToCurrentTime,
         initialDate: initialDate ? localDate(initialDate) : null,
     });
-    return { ...nav, onDatesChange };
+    return { ...nav, onDatesChange, scrollToCurrentTime };
 }
 
 function labels(days: Dayjs[]): string[] {
@@ -133,6 +134,46 @@ describe('useCalendarNavigation deep links', () => {
         const { activeView } = navigation('2026-08-08');
 
         expect(activeView.value).toBe('timeGridWeek');
+    });
+});
+
+describe('useCalendarNavigation scroll anchoring', () => {
+    beforeEach(() => {
+        setWeekStart('monday');
+        setWeekDays(7);
+    });
+
+    // Paging changes which days are shown, not what time of day you are looking at. The
+    // scroller survives navigation, so leaving it alone is what keeps the position.
+    it('leaves the viewport alone when paging forwards and backwards', () => {
+        const { handleNext, handlePrev, scrollToCurrentTime, onDatesChange } =
+            navigation(WEDNESDAY);
+        onDatesChange.mockClear();
+
+        handleNext();
+        handlePrev();
+
+        expect(scrollToCurrentTime).not.toHaveBeenCalled();
+        // Guards against "fixing" the reset by suppressing the whole handler
+        expect(onDatesChange).toHaveBeenCalledTimes(2);
+    });
+
+    it('leaves the viewport alone when switching between the week and day views', () => {
+        const { handleChangeView, scrollToCurrentTime } = navigation(WEDNESDAY);
+
+        handleChangeView('timeGridDay');
+        handleChangeView('timeGridWeek');
+
+        expect(scrollToCurrentTime).not.toHaveBeenCalled();
+    });
+
+    it('scrolls back to the current time when jumping to today', () => {
+        const { handleNext, handleToday, scrollToCurrentTime } = navigation(WEDNESDAY);
+
+        handleNext();
+        handleToday();
+
+        expect(scrollToCurrentTime).toHaveBeenCalledTimes(1);
     });
 });
 
