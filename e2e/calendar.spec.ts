@@ -3282,3 +3282,132 @@ test('test that calendar context menu can add a break that fills the gap between
     expect(body.data.start).toBe(gapStart);
     expect(body.data.end).toBe(gapEnd);
 });
+
+// =============================================
+// Section 22: Event Hover Popup
+// =============================================
+
+test.describe('Event Hover Popup', () => {
+    const LONG_DESCRIPTION =
+        'RT-2735 Test sanger ssh access + create ticketing account + create support ticket ' +
+        'for no access + reply again + test again';
+
+    test('hovering an event shows the full description, time range and duration', async ({
+        page,
+        ctx,
+    }) => {
+        await createTimeEntryWithTimestampsViaApi(ctx, {
+            description: LONG_DESCRIPTION,
+            start: todayAt(10),
+            end: todayAt(11),
+        });
+        await goToCalendar(page);
+        await scrollCalendarToTime(page, '09:00:00');
+
+        const event = page.locator('.fc-event').filter({ hasText: 'RT-2735' }).first();
+        await expect(event).toBeVisible();
+        await event.hover();
+
+        const popup = page.getByTestId('calendar_event_tooltip');
+        await expect(popup).toBeVisible();
+        await expect(popup).toContainText(LONG_DESCRIPTION);
+        await expect(popup).toContainText('10:00 - 11:00');
+        await expect(popup).toContainText('1h 00min');
+    });
+
+    test('the popup shows more text than the clamped block', async ({ page, ctx }) => {
+        // A 15-minute block has room for barely a line, which is the whole point of the popup.
+        await createTimeEntryWithTimestampsViaApi(ctx, {
+            description: LONG_DESCRIPTION,
+            start: todayAt(10),
+            end: todayAt(10, 15),
+        });
+        await goToCalendar(page);
+        await scrollCalendarToTime(page, '09:00:00');
+
+        const event = page.locator('.fc-event').filter({ hasText: 'RT-2735' }).first();
+        await expect(event).toBeVisible();
+        await event.hover();
+
+        const popup = page.getByTestId('calendar_event_tooltip');
+        await expect(popup).toBeVisible();
+        expect((await popup.innerText()).length).toBeGreaterThan((await event.innerText()).length);
+    });
+
+    test('the popup hides when the pointer leaves the event', async ({ page, ctx }) => {
+        await createTimeEntryWithTimestampsViaApi(ctx, {
+            description: 'Hover leave test',
+            start: todayAt(10),
+            end: todayAt(11),
+        });
+        await goToCalendar(page);
+        await scrollCalendarToTime(page, '09:00:00');
+
+        const event = page.locator('.fc-event').filter({ hasText: 'Hover leave test' }).first();
+        await event.hover();
+        const popup = page.getByTestId('calendar_event_tooltip');
+        await expect(popup).toBeVisible();
+
+        await page.locator('.fc-timegrid-slot-lane[data-time="14:00:00"]').first().hover();
+        await expect(popup).not.toBeVisible();
+    });
+
+    test('a drag still works while the popup is showing', async ({ page, ctx }) => {
+        // The popup overlaps the entry, so this is what proves pointer-events: none reached
+        // the popper wrapper Reka creates around the content.
+        await createTimeEntryWithTimestampsViaApi(ctx, {
+            description: 'Hover drag test',
+            start: todayAt(10),
+            end: todayAt(11),
+        });
+        await goToCalendar(page);
+        await scrollCalendarToTime(page, '09:00:00');
+
+        const event = page.locator('.fc-event').filter({ hasText: 'Hover drag test' }).first();
+        await expect(event).toBeVisible();
+        await event.hover();
+        await expect(page.getByTestId('calendar_event_tooltip')).toBeVisible();
+
+        const slotHeight = await getSlotHeight(page);
+        const eventBox = await event.boundingBox();
+
+        const [putResponse] = await Promise.all([
+            page.waitForResponse(
+                (r) =>
+                    r.url().includes('/time-entries/') &&
+                    r.request().method() === 'PUT' &&
+                    r.status() === 200
+            ),
+            (async () => {
+                await page.mouse.down();
+                await page.mouse.move(
+                    eventBox!.x + eventBox!.width / 2,
+                    eventBox!.y + slotHeight * 8,
+                    { steps: 15 }
+                );
+                await page.mouse.up();
+            })(),
+        ]);
+
+        const body = await putResponse.json();
+        expect(body.data.start).not.toContain('T10:00:00');
+    });
+
+    test('clicking through the popup still opens the edit modal', async ({ page, ctx }) => {
+        const description = 'Hover click test ' + Math.floor(1 + Math.random() * 10000);
+        await createBareTimeEntryViaApi(ctx, description, '1h');
+        await goToCalendar(page);
+
+        const event = page.locator('.fc-event').filter({ hasText: description }).first();
+        await expect(event).toBeVisible();
+        await event.hover();
+        await expect(page.getByTestId('calendar_event_tooltip')).toBeVisible();
+
+        await event.click();
+
+        await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
+        await expect(
+            page.getByRole('dialog').getByPlaceholder('What did you work on?')
+        ).toHaveValue(description);
+    });
+});

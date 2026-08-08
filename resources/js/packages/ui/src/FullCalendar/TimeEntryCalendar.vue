@@ -503,6 +503,14 @@ function getEventOpacityClass(dayEvent: DayEvent, dayStr: string): string {
     return 'opacity-90 hover:opacity-100';
 }
 
+/*
+ * A hover popup would only get in the way while a gesture or a menu owns the pointer — and
+ * during a resize it would show a duration that is already being restated live on the block.
+ */
+const suppressEventTooltips = computed(
+    () => isDragging.value || isResizing.value || isSelecting.value || contextMenuOpen.value
+);
+
 function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
     const ev = dayEvent.event;
     const isResizeTarget = resizeEventId.value === ev.id;
@@ -713,6 +721,7 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                                             :get-event-style="getEventStyle"
                                             :get-event-opacity-class="getEventOpacityClass"
                                             :get-event-duration-seconds="getEventDurationSeconds"
+                                            :suppress-event-tooltips="suppressEventTooltips"
                                             :is-dragging="isDragging"
                                             :drag-event-id="dragEventId"
                                             :drag-preview="

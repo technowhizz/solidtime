@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { DocumentDuplicateIcon } from '@heroicons/vue/20/solid';
 import FullCalendarEventContent from './FullCalendarEventContent.vue';
+import FullCalendarEventTooltip from './FullCalendarEventTooltip.vue';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '..';
 import type { DayEvent, ActivityBox } from './calendarTypes';
 import type { WindowActivityInPeriod } from './activityTypes';
@@ -33,6 +34,9 @@ const props = defineProps<{
     // Resize state
     resizeEventId: string | null;
     resizeCrossDayPreview: Record<string, string> | undefined;
+
+    /** Hover popups stay out of the way while a gesture or a menu owns the pointer. */
+    suppressEventTooltips: boolean;
 
     // Now indicator
     showNowIndicator: boolean;
@@ -105,53 +109,81 @@ const emit = defineEmits<{
         :data-date="dayStr"
         :style="{ height: totalGridHeight + 'px' }">
         <div class="absolute inset-y-0" :style="eventsInsetStyle">
-            <div
-                v-for="dayEvent in dayEvents"
-                :key="dayEvent.event.id"
-                class="fc-event group pointer-events-auto rounded-sm text-xs cursor-pointer shadow-card border border-border touch-none select-none hover:shadow-dropdown focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-                :class="[
-                    getEventOpacityClass(dayEvent, dayStr),
-                    {
-                        'running-entry rounded-b-none': dayEvent.event.isRunning,
-                        'fc-event-break': dayEvent.event.isBreak,
-                        'fc-event-dragging': isDragging && dragEventId === dayEvent.event.id,
-                        'fc-event-resizing': resizeEventId === dayEvent.event.id,
-                        'rounded-t-none': dayEvent.isClippedStart,
-                        'rounded-b-none': dayEvent.isClippedEnd,
-                        'fc-event-clipped-start': dayEvent.isClippedStart,
-                        'fc-event-clipped-end': dayEvent.isClippedEnd,
-                    },
-                ]"
-                :data-event-id="dayEvent.event.id"
-                :style="getEventStyle(dayEvent, dayStr)"
-                tabindex="0"
-                :aria-label="dayEvent.event.title"
-                role="button"
-                @pointerdown="emit('event-pointerdown', $event, dayEvent)"
-                @keydown.enter.prevent="emit('event-keydown-enter', dayEvent)">
-                <div
-                    v-if="!dayEvent.isClippedStart"
-                    class="fc-event-resizer fc-event-resizer-start absolute z-[99] w-full h-3 left-0 top-[-2px] cursor-row-resize flex items-center justify-center opacity-0 group-hover:opacity-100"
-                    @pointerdown.stop.prevent="
-                        emit('resizer-pointerdown', $event, dayEvent, 'start')
-                    "></div>
-                <div class="px-1 py-0.5 h-full overflow-hidden">
-                    <FullCalendarEventContent
-                        :title="dayEvent.event.title"
-                        :project-name="dayEvent.event.project?.name"
-                        :task-name="dayEvent.event.task?.name"
-                        :client-name="dayEvent.event.client?.name"
-                        :is-break="dayEvent.event.isBreak"
-                        :is-misplaced-break="dayEvent.event.isMisplacedBreak"
-                        :duration-seconds="getEventDurationSeconds(dayEvent, dayStr)" />
-                </div>
-                <div
-                    v-if="!dayEvent.event.isRunning && !dayEvent.isClippedEnd"
-                    class="fc-event-resizer fc-event-resizer-end absolute z-[99] w-full h-3 left-0 bottom-[-2px] cursor-row-resize flex items-center justify-center opacity-0 group-hover:opacity-100"
-                    @pointerdown.stop.prevent="
-                        emit('resizer-pointerdown', $event, dayEvent, 'end')
-                    "></div>
-            </div>
+            <TooltipProvider :disable-hoverable-content="true" :delay-duration="75">
+                <Tooltip v-for="dayEvent in dayEvents" :key="dayEvent.event.id">
+                    <TooltipTrigger as-child>
+                        <div
+                            class="fc-event group pointer-events-auto rounded-sm text-xs cursor-pointer shadow-card border border-border touch-none select-none hover:shadow-dropdown focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                            :class="[
+                                getEventOpacityClass(dayEvent, dayStr),
+                                {
+                                    'running-entry rounded-b-none': dayEvent.event.isRunning,
+                                    'fc-event-break': dayEvent.event.isBreak,
+                                    'fc-event-dragging':
+                                        isDragging && dragEventId === dayEvent.event.id,
+                                    'fc-event-resizing': resizeEventId === dayEvent.event.id,
+                                    'rounded-t-none': dayEvent.isClippedStart,
+                                    'rounded-b-none': dayEvent.isClippedEnd,
+                                    'fc-event-clipped-start': dayEvent.isClippedStart,
+                                    'fc-event-clipped-end': dayEvent.isClippedEnd,
+                                },
+                            ]"
+                            :data-event-id="dayEvent.event.id"
+                            :style="getEventStyle(dayEvent, dayStr)"
+                            tabindex="0"
+                            :aria-label="dayEvent.event.title"
+                            role="button"
+                            @pointerdown="emit('event-pointerdown', $event, dayEvent)"
+                            @keydown.enter.prevent="emit('event-keydown-enter', dayEvent)">
+                            <div
+                                v-if="!dayEvent.isClippedStart"
+                                class="fc-event-resizer fc-event-resizer-start absolute z-[99] w-full h-3 left-0 top-[-2px] cursor-row-resize flex items-center justify-center opacity-0 group-hover:opacity-100"
+                                @pointerdown.stop.prevent="
+                                    emit('resizer-pointerdown', $event, dayEvent, 'start')
+                                "></div>
+                            <div class="px-1 py-0.5 h-full overflow-hidden">
+                                <FullCalendarEventContent
+                                    :title="dayEvent.event.title"
+                                    :project-name="dayEvent.event.project?.name"
+                                    :task-name="dayEvent.event.task?.name"
+                                    :client-name="dayEvent.event.client?.name"
+                                    :is-break="dayEvent.event.isBreak"
+                                    :is-misplaced-break="dayEvent.event.isMisplacedBreak"
+                                    :duration-seconds="getEventDurationSeconds(dayEvent, dayStr)" />
+                            </div>
+                            <div
+                                v-if="!dayEvent.event.isRunning && !dayEvent.isClippedEnd"
+                                class="fc-event-resizer fc-event-resizer-end absolute z-[99] w-full h-3 left-0 bottom-[-2px] cursor-row-resize flex items-center justify-center opacity-0 group-hover:opacity-100"
+                                @pointerdown.stop.prevent="
+                                    emit('resizer-pointerdown', $event, dayEvent, 'end')
+                                "></div>
+                        </div>
+                    </TooltipTrigger>
+                    <!--
+                        Reka's `disabled` prop only strips the trigger's listeners — nothing
+                        closes an already-open tooltip. A resize started from a resizer strip
+                        (which stops propagation, so Reka's own auto-close never runs) would
+                        strand the popup on screen. Unmounting the content instead leaves the
+                        open/close state machine intact, so pointerleave still works.
+                    -->
+                    <TooltipContent
+                        v-if="!suppressEventTooltips"
+                        side="bottom"
+                        align="start"
+                        :side-offset="-4"
+                        :collision-padding="8"
+                        class="fc-event-tooltip pointer-events-none">
+                        <FullCalendarEventTooltip
+                            :title="dayEvent.event.title"
+                            :start="dayEvent.event.timeEntry.start"
+                            :end="dayEvent.event.timeEntry.end"
+                            :duration-seconds="getEventDurationSeconds(dayEvent, dayStr)"
+                            :project-name="dayEvent.event.project?.name"
+                            :task-name="dayEvent.event.task?.name"
+                            :client-name="dayEvent.event.client?.name" />
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
         </div>
 
         <!-- Read-only lane for events from a connected external calendar. The divider is
@@ -540,5 +572,21 @@ const emit = defineEmits<{
         rgba(217, 119, 6, 0.15) 5px,
         rgba(217, 119, 6, 0.15) 7px
     );
+}
+</style>
+
+<style>
+/*
+ * The hover popup deliberately overlaps the entry it describes, and every calendar gesture
+ * (drag, resize, slot selection) is pointer-driven — so the popup must never be a hit target.
+ * `pointer-events-none` on the content alone is not enough: Reka positions it inside a
+ * [data-reka-popper-content-wrapper] div that it creates itself and that takes no class from
+ * us, and that wrapper is sized to the content, so it stays hit-testable.
+ *
+ * Scoped with :has() rather than applied to every popper wrapper, since PopperContent is
+ * shared with Popover, DropdownMenu, Select and ContextMenu, which all need their clicks.
+ */
+[data-reka-popper-content-wrapper]:has(> .fc-event-tooltip) {
+    pointer-events: none;
 }
 </style>
