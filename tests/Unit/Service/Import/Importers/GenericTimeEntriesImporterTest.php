@@ -16,6 +16,25 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(DefaultImporter::class)]
 class GenericTimeEntriesImporterTest extends ImporterTestAbstract
 {
+    public function test_import_with_target_member_assigns_all_time_entries_to_that_member(): void
+    {
+        // Arrange
+        [$organization, $member] = $this->createOrganizationWithMember();
+        $timezone = 'Europe/Vienna';
+        $importer = new GenericTimeEntriesImporter;
+        $importer->init($organization, $member);
+        $data = Storage::disk('testfiles')->get('generic_time_entries_import_test_1.csv');
+
+        // Act
+        $importer->importData($data, $timezone);
+        $report = $importer->getReport();
+
+        // Assert
+        $this->checkTimeEntriesBelongToTargetMember($member, 2);
+        $this->assertSame(2, $report->timeEntriesCreated);
+        $this->assertSame(0, $report->usersCreated);
+    }
+
     public function test_import_of_test_file_succeeds(): void
     {
         // Arrange

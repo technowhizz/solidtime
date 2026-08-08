@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Requests\V1\Import\ImportRequest;
+use App\Models\Member;
 use App\Models\Organization;
 use App\Service\Import\Importers\ImporterContract;
 use App\Service\Import\Importers\ImporterProvider;
@@ -22,7 +23,7 @@ class ImportController extends Controller
      *
      * @throws AuthorizationException
      *
-     * @response array{data: array<array{ key: string, name: string, description: string }>}
+     * @response array{data: array<array{ key: string, name: string, description: string, supports_member_assignment: bool }>}
      */
     public function index(Organization $organization, ImporterProvider $importerProvider): JsonResponse
     {
@@ -30,7 +31,7 @@ class ImportController extends Controller
 
         $importers = $importerProvider->getImporters();
 
-        /** @var array<array{ key: string, name: string, description: string }> $importersResponse */
+        /** @var array<array{ key: string, name: string, description: string, supports_member_assignment: bool }> $importersResponse */
         $importersResponse = [];
 
         foreach ($importers as $key => $importerClass) {
@@ -40,6 +41,7 @@ class ImportController extends Controller
                 'key' => $key,
                 'name' => $importer->getName(),
                 'description' => $importer->getDescription(),
+                'supports_member_assignment' => $importer->supportsTargetMember(),
             ];
         }
 
@@ -67,12 +69,16 @@ class ImportController extends Controller
                 ], 400);
             }
 
+            $memberId = $request->getMemberId();
+            $targetMember = $memberId === null ? null : Member::query()->findOrFail($memberId);
+
             $timezone = $this->user()->timezone;
             $report = $importService->import(
                 $organization,
                 $request->input('type'),
                 $importData,
-                $timezone
+                $timezone,
+                $targetMember
             );
 
             return new JsonResponse([

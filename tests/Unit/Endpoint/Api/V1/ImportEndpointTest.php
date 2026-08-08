@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Endpoint\Api\V1;
 
 use App\Http\Controllers\Api\V1\ImportController;
+use App\Models\Member;
 use App\Models\Organization;
 use App\Service\Import\Importers\ImportException;
 use App\Service\Import\Importers\ReportDto;
@@ -49,6 +50,7 @@ class ImportEndpointTest extends ApiEndpointTestAbstract
                     'key',
                     'name',
                     'description',
+                    'supports_member_assignment',
                 ],
             ],
         ]);
@@ -56,6 +58,9 @@ class ImportEndpointTest extends ApiEndpointTestAbstract
         $this->assertSame('toggl_time_entries', $toggleTimeEntries['key']);
         $this->assertSame('Toggl Time Entries', $toggleTimeEntries['name']);
         $this->assertSame(__('importer.toggl_time_entries.description'), $toggleTimeEntries['description']);
+        $this->assertTrue($toggleTimeEntries['supports_member_assignment']);
+        $solidtimeImporter = collect($response->json('data'))->where('key', 'solidtime')->first();
+        $this->assertFalse($solidtimeImporter['supports_member_assignment']);
     }
 
     public function test_import_fails_if_user_does_not_have_permission(): void
@@ -124,6 +129,65 @@ class ImportEndpointTest extends ApiEndpointTestAbstract
         $response->assertExactJson([
             'message' => 'This is a test error!',
         ]);
+    }
+
+    public function test_import_fails_if_member_id_belongs_to_a_different_organization(): void
+    {
+        // Arrange
+        $user = $this->createUserWithPermission([
+            'import',
+        ]);
+        $otherOrganization = $this->createUserWithPermission();
+        Passport::actingAs($user->user);
+
+        // Act
+        $response = $this->postJson(route('api.v1.import.import', ['organization' => $user->organization->getKey()]), [
+            'type' => 'toggl_time_entries',
+            'data' => base64_encode('some data'),
+            'member_id' => $otherOrganization->member->getKey(),
+        ]);
+
+        // Assert
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['member_id']);
+    }
+
+    public function test_import_passes_the_target_member_to_the_import_service(): void
+    {
+        // Arrange
+        $user = $this->createUserWithPermission([
+            'import',
+        ]);
+        $this->mock(ImportService::class, function (MockInterface $mock) use (&$user): void {
+            $mock->shouldReceive('import')
+                ->withArgs(function (Organization $organization, string $importerType, string $data, string $timezone, ?Member $targetMember) use (&$user): bool {
+                    return $organization->is($user->organization)
+                        && $importerType === 'toggl_time_entries'
+                        && $data === 'some data'
+                        && $targetMember !== null
+                        && $targetMember->is($user->member);
+                })
+                ->andReturn(new ReportDto(
+                    clientsCreated: 0,
+                    projectsCreated: 0,
+                    tasksCreated: 0,
+                    timeEntriesCreated: 1,
+                    tagsCreated: 0,
+                    usersCreated: 0,
+                ))
+                ->once();
+        });
+        Passport::actingAs($user->user);
+
+        // Act
+        $response = $this->postJson(route('api.v1.import.import', ['organization' => $user->organization->getKey()]), [
+            'type' => 'toggl_time_entries',
+            'data' => base64_encode('some data'),
+            'member_id' => $user->member->getKey(),
+        ]);
+
+        // Assert
+        $response->assertStatus(200);
     }
 
     public function test_import_calls_import_service_if_user_has_permission(): void

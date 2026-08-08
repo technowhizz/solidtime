@@ -45,6 +45,25 @@ class ClockifyTimeEntriesImporterTest extends ImporterTestAbstract
         $this->assertSame(1, $report->clientsCreated);
     }
 
+    public function test_import_with_target_member_assigns_all_time_entries_to_that_member(): void
+    {
+        // Arrange
+        [$organization, $member] = $this->createOrganizationWithMember();
+        $timezone = 'Europe/Vienna';
+        $importer = new ClockifyTimeEntriesImporter;
+        $importer->init($organization, $member);
+        $data = Storage::disk('testfiles')->get('clockify_time_entries_import_test_1.csv');
+
+        // Act
+        $importer->importData($data, $timezone);
+        $report = $importer->getReport();
+
+        // Assert
+        $this->checkTimeEntriesBelongToTargetMember($member, 2);
+        $this->assertSame(2, $report->timeEntriesCreated);
+        $this->assertSame(0, $report->usersCreated);
+    }
+
     public function test_import_of_test_file_without_billable_works_and_defaults_to_non_billable(): void
     {
         // Arrange

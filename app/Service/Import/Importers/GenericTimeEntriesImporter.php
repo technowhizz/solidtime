@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Service\Import\Importers;
 
-use App\Enums\Role;
 use App\Jobs\RecalculateSpentTimeForProject;
 use App\Jobs\RecalculateSpentTimeForTask;
 use App\Models\TimeEntry;
@@ -72,20 +71,7 @@ class GenericTimeEntriesImporter extends DefaultImporter
             $this->validateHeader($header);
             $records = $reader->getRecords();
             foreach ($records as $record) {
-                $userId = $this->userImportHelper->getKey([
-                    'email' => $record['user_email'],
-                ], [
-                    'name' => $record['user_name'],
-                    'timezone' => 'UTC',
-                    'is_placeholder' => true,
-                ]);
-                $memberId = $this->memberImportHelper->getKey([
-                    'user_id' => $userId,
-                    'organization_id' => $this->organization->getKey(),
-                ], [
-                    'role' => Role::Placeholder->value,
-                ]);
-                $member = $this->memberImportHelper->getModelById($memberId);
+                [$userId, $memberId, $member] = $this->resolveTimeEntryMember($record['user_email'], $record['user_name']);
                 $clientId = null;
                 if ($record['client'] !== '') {
                     $clientId = $this->clientImportHelper->getKey([
@@ -192,6 +178,12 @@ class GenericTimeEntriesImporter extends DefaultImporter
                 throw new ImportException('Invalid CSV header, missing field: '.$requiredField);
             }
         }
+    }
+
+    #[\Override]
+    public function supportsTargetMember(): bool
+    {
+        return true;
     }
 
     #[\Override]

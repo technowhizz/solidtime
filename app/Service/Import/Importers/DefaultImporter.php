@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service\Import\Importers;
 
+use App\Enums\Role;
 use App\Models\Client;
 use App\Models\Member;
 use App\Models\Organization;
@@ -22,6 +23,12 @@ use Illuminate\Database\Eloquent\Builder;
 abstract class DefaultImporter implements ImporterContract
 {
     protected Organization $organization;
+
+    /**
+     * When set, every imported time entry is assigned to this member and no placeholder
+     * user/member is created from the import file.
+     */
+    protected ?Member $targetMember = null;
 
     /**
      * @var ImportDatabaseHelper<User>
@@ -71,9 +78,10 @@ abstract class DefaultImporter implements ImporterContract
 
     protected BillableRateService $billableRateService;
 
-    public function init(Organization $organization): void
+    public function init(Organization $organization, ?Member $targetMember = null): void
     {
         $this->organization = $organization;
+        $this->targetMember = $this->supportsTargetMember() ? $targetMember : null;
         $this->userImportHelper = new ImportDatabaseHelper(User::class, ['email'], true, function (Builder $builder) {
             /** @var Builder<User> $builder */
             return $builder->belongsToOrganization($this->organization);
@@ -179,6 +187,48 @@ abstract class DefaultImporter implements ImporterContract
         $this->colorService = app(ColorService::class);
         $this->timezoneService = app(TimezoneService::class);
         $this->billableRateService = app(BillableRateService::class);
+    }
+
+    #[\Override]
+    public function supportsTargetMember(): bool
+    {
+        return false;
+    }
+
+    /**
+     * Resolve the member that an imported time entry belongs to.
+     *
+     * Without a target member the owner is derived from the import file, creating a placeholder
+     * user and member for anyone who is not part of the organization yet. That is right for a
+     * team export, but it hides the entries from the calendar and the time tab when someone
+     * imports their own export under a different email, because those views always filter by
+     * the current membership. A target member skips the placeholders entirely.
+     *
+     * @return array{0: string, 1: string, 2: Member|null} user id, member id and the member itself
+     *
+     * @throws ImportException
+     */
+    protected function resolveTimeEntryMember(string $email, string $name): array
+    {
+        if ($this->targetMember !== null) {
+            return [$this->targetMember->user_id, $this->targetMember->getKey(), $this->targetMember];
+        }
+
+        $userId = $this->userImportHelper->getKey([
+            'email' => $email,
+        ], [
+            'name' => $name,
+            'timezone' => 'UTC',
+            'is_placeholder' => true,
+        ]);
+        $memberId = $this->memberImportHelper->getKey([
+            'user_id' => $userId,
+            'organization_id' => $this->organization->getKey(),
+        ], [
+            'role' => Role::Placeholder->value,
+        ]);
+
+        return [$userId, $memberId, $this->memberImportHelper->getModelById($memberId)];
     }
 
     #[\Override]

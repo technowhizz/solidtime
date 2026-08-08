@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Service\Import\Importers;
 
-use App\Enums\Role;
 use App\Enums\TimeEntryType;
 use App\Jobs\RecalculateSpentTimeForProject;
 use App\Jobs\RecalculateSpentTimeForTask;
@@ -58,20 +57,7 @@ class ClockifyTimeEntriesImporter extends DefaultImporter
             $taskKey = $this->getTaskKey($header);
             $records = $reader->getRecords();
             foreach ($records as $record) {
-                $userId = $this->userImportHelper->getKey([
-                    'email' => $record['Email'],
-                ], [
-                    'name' => $record['User'],
-                    'timezone' => 'UTC',
-                    'is_placeholder' => true,
-                ]);
-                $memberId = $this->memberImportHelper->getKey([
-                    'user_id' => $userId,
-                    'organization_id' => $this->organization->getKey(),
-                ], [
-                    'role' => Role::Placeholder->value,
-                ]);
-                $member = $this->memberImportHelper->getModelById($memberId);
+                [$userId, $memberId, $member] = $this->resolveTimeEntryMember($record['Email'], $record['User']);
                 // Clockify allows a project/task/client/tags/billable on breaks, but those are
                 // meaningless for non-work time. Detect breaks up front and skip creating any of
                 // that so a break can't spawn an orphan project/tag or inflate the import counts.
@@ -260,6 +246,12 @@ class ClockifyTimeEntriesImporter extends DefaultImporter
         }
 
         return null;
+    }
+
+    #[\Override]
+    public function supportsTargetMember(): bool
+    {
+        return true;
     }
 
     #[\Override]

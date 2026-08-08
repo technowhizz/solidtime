@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Service\Import\Importers;
 
-use App\Enums\Role;
 use App\Jobs\RecalculateSpentTimeForProject;
 use App\Jobs\RecalculateSpentTimeForTask;
 use App\Models\TimeEntry;
@@ -51,20 +50,10 @@ class HarvestTimeEntriesImporter extends DefaultImporter
             foreach ($records as $record) {
                 $firstname = $record['First Name'];
                 $lastname = $record['Last Name'];
-                $userId = $this->userImportHelper->getKey([
-                    'email' => Str::slug($firstname).'.'.Str::slug($lastname).'@solidtime-import.test',
-                ], [
-                    'name' => $firstname.' '.$lastname,
-                    'timezone' => 'UTC',
-                    'is_placeholder' => true,
-                ]);
-                $memberId = $this->memberImportHelper->getKey([
-                    'user_id' => $userId,
-                    'organization_id' => $this->organization->getKey(),
-                ], [
-                    'role' => Role::Placeholder->value,
-                ]);
-                $member = $this->memberImportHelper->getModelById($memberId);
+                [$userId, $memberId, $member] = $this->resolveTimeEntryMember(
+                    Str::slug($firstname).'.'.Str::slug($lastname).'@solidtime-import.test',
+                    $firstname.' '.$lastname
+                );
                 $clientId = null;
                 if ($record['Client'] !== '') {
                     $clientId = $this->clientImportHelper->getKey([
@@ -175,6 +164,12 @@ class HarvestTimeEntriesImporter extends DefaultImporter
                 throw new ImportException('Invalid CSV header, missing field: '.$requiredField);
             }
         }
+    }
+
+    #[Override]
+    public function supportsTargetMember(): bool
+    {
+        return true;
     }
 
     #[Override]

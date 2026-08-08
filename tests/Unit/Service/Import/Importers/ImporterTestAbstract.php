@@ -7,6 +7,7 @@ namespace Tests\Unit\Service\Import\Importers;
 use App\Enums\Role;
 use App\Models\Client;
 use App\Models\Member;
+use App\Models\Organization;
 use App\Models\Project;
 use App\Models\Tag;
 use App\Models\Task;
@@ -200,6 +201,40 @@ class ImporterTestAbstract extends TestCase
         $this->assertSame(! $billableDefault, $timeEntry2->billable);
         $this->assertTrue($timeEntry2->is_imported);
         $this->assertSame([], $timeEntry2->tags);
+    }
+
+    /**
+     * A member that already exists in the organization, i.e. the person running the import.
+     *
+     * @return array{0: Organization, 1: Member}
+     */
+    protected function createOrganizationWithMember(): array
+    {
+        $organization = Organization::factory()->create();
+        $member = Member::factory()
+            ->forOrganization($organization)
+            ->forUser(User::factory()->create())
+            ->role(Role::Employee)
+            ->create();
+
+        return [$organization, $member];
+    }
+
+    /**
+     * Every imported time entry belongs to the target member and no placeholder was invented for
+     * the user column of the import file.
+     */
+    protected function checkTimeEntriesBelongToTargetMember(Member $member, int $expectedCount): void
+    {
+        $timeEntries = TimeEntry::all();
+        $this->assertCount($expectedCount, $timeEntries);
+        foreach ($timeEntries as $timeEntry) {
+            /** @var TimeEntry $timeEntry */
+            $this->assertSame($member->getKey(), $timeEntry->member_id);
+            $this->assertSame($member->user_id, $timeEntry->user_id);
+        }
+        $this->assertSame(0, User::query()->where('is_placeholder', '=', true)->count());
+        $this->assertSame(0, Member::query()->where('role', '=', Role::Placeholder->value)->count());
     }
 
     protected function createTestZip(string $folder): string

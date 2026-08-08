@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service\Import;
 
+use App\Models\Member;
 use App\Models\Organization;
 use App\Service\Import\Importers\ImporterContract;
 use App\Service\Import\Importers\ImporterProvider;
@@ -20,11 +21,11 @@ class ImportService
     /**
      * @throws ImportException
      */
-    public function import(Organization $organization, string $importerType, string $data, string $timezone): ReportDto
+    public function import(Organization $organization, string $importerType, string $data, string $timezone, ?Member $targetMember = null): ReportDto
     {
         /** @var ImporterContract $importer */
         $importer = app(ImporterProvider::class)->getImporter($importerType);
-        $importer->init($organization);
+        $importer->init($organization, $targetMember);
         Storage::disk(config('filesystems.default'))
             ->put('import/'.Carbon::now()->toDateString().'-'.$organization->getKey().'-'.Str::uuid(), $data);
 
