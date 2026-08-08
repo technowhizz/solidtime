@@ -7,13 +7,15 @@ import { Field, FieldLabel } from '@/packages/ui/src/field';
 import { DocumentIcon } from '@heroicons/vue/24/solid';
 import { ArrowDownOnSquareIcon, InformationCircleIcon } from '@heroicons/vue/24/outline';
 
-import { getCurrentOrganizationId } from '@/utils/useUser';
+import { getCurrentMembershipId, getCurrentOrganizationId } from '@/utils/useUser';
 import type { ImportReport, ImportType } from '@/packages/api/src';
 import DialogModal from '@/packages/ui/src/DialogModal.vue';
 import SecondaryButton from '@/packages/ui/src/Buttons/SecondaryButton.vue';
 import { initializeStores } from '@/utils/init';
 import { CardTitle } from '@/packages/ui/src';
 import Card from '@/Components/Common/Card.vue';
+import Checkbox from '@/packages/ui/src/Input/Checkbox.vue';
+import MemberCombobox from '@/Components/Common/Member/MemberCombobox.vue';
 
 const importTypeOptions = ref<ImportType[]>([]);
 
@@ -37,6 +39,16 @@ onMounted(async () => {
 const reportResult = ref<ImportReport | null>();
 const files = ref<FileList | null>(null);
 
+// Importing your own export usually means the file's user column is an account that does not exist
+// in this organization. Without a target member the importer creates a placeholder member for it,
+// and the calendar and time views stay empty because they always filter by your own membership.
+const assignToMember = ref(true);
+const targetMemberId = ref<string>(getCurrentMembershipId() ?? '');
+
+const supportsMemberAssignment = computed(
+    () => importType.value?.supports_member_assignment === true
+);
+
 async function importData() {
     if (importType.value === null) {
         addNotification('error', 'Please select the import type');
@@ -44,6 +56,10 @@ async function importData() {
     }
     if (files.value?.length !== 1) {
         addNotification('error', 'Please select the CSV or ZIP file that you want to import');
+        return;
+    }
+    if (supportsMemberAssignment.value && assignToMember.value && !targetMemberId.value) {
+        addNotification('error', 'Please select the member to assign the time entries to');
         return;
     }
     const rawBase64String = await toBase64(files.value[0]!);
@@ -59,6 +75,10 @@ async function importData() {
                         {
                             type: importType.value.key,
                             data: base64String,
+                            member_id:
+                                supportsMemberAssignment.value && assignToMember.value
+                                    ? targetMemberId.value
+                                    : null,
                         },
                         {
                             params: {
@@ -184,6 +204,30 @@ const showResultModal = ref(false);
                         <div class="font-semibold text-text-secondary py-1">Instructions:</div>
                         <div class="max-w-2xl" v-html="currentImporterDescription"></div>
                     </div>
+                </Field>
+
+                <Field v-if="supportsMemberAssignment" class="pt-4">
+                    <Field orientation="horizontal">
+                        <Checkbox
+                            id="assignToMember"
+                            name="assignToMember"
+                            :checked="assignToMember"
+                            @update:checked="(value: boolean) => (assignToMember = value)" />
+                        <FieldLabel for="assignToMember" class="font-medium text-text-primary">
+                            Assign all time entries to one member
+                        </FieldLabel>
+                    </Field>
+                    <div v-if="assignToMember" class="pt-2 max-w-sm">
+                        <MemberCombobox v-model="targetMemberId" data-testid="import_member" />
+                        <p class="pt-2 text-sm text-text-secondary">
+                            Set this to yourself when importing your own export. The entries will
+                            only show up in your calendar and time tab if they belong to you.
+                        </p>
+                    </div>
+                    <p v-else class="pt-2 text-sm text-text-secondary">
+                        Owners are taken from the file. Anyone who is not part of this organization
+                        yet is added as a placeholder member. Use this for a team-wide export.
+                    </p>
                 </Field>
 
                 <div

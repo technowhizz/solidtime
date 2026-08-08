@@ -57,7 +57,9 @@ const GoogleCalendarEventResource = z
     })
     .passthrough();
 const GoogleCalendarEventCollection = z.array(GoogleCalendarEventResource);
-const ImportRequest = z.object({ type: z.string(), data: z.string() }).passthrough();
+const ImportRequest = z
+    .object({ type: z.string(), data: z.string(), member_id: z.string().nullish() })
+    .passthrough();
 const InvitationResource = z
     .object({ id: z.string(), email: z.string(), role: z.string() })
     .passthrough();
@@ -1627,7 +1629,12 @@ const endpoints = makeApi([
             .object({
                 data: z.array(
                     z
-                        .object({ key: z.string(), name: z.string(), description: z.string() })
+                        .object({
+                            key: z.string(),
+                            name: z.string(),
+                            description: z.string(),
+                            supports_member_assignment: z.boolean(),
+                        })
                         .passthrough()
                 ),
             })
