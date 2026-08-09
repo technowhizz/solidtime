@@ -552,6 +552,28 @@ test('test that password can be updated successfully', async ({ page }) => {
 // Theme Selection Tests
 // =============================================
 
+test('test that the stored theme is applied before the page is painted', async ({ page }) => {
+    // The colour tokens live entirely inside :root.dark / :root.light, so a page that reaches
+    // first paint without one of those classes renders on the browser's white canvas — the
+    // flash this guards against. Assert at domcontentloaded, before the bundle has booted.
+    await page.addInitScript(() => window.localStorage.setItem('theme', 'dark'));
+    await page.goto(PLAYWRIGHT_BASE_URL + '/dashboard', { waitUntil: 'domcontentloaded' });
+
+    const dark = await page.evaluate(() => ({
+        htmlClass: document.documentElement.className,
+        bodyBackground: getComputedStyle(document.body).backgroundColor,
+    }));
+    expect(dark.htmlClass).toContain('dark');
+    expect(dark.bodyBackground).not.toBe('rgb(255, 255, 255)');
+    expect(dark.bodyBackground).not.toBe('rgba(0, 0, 0, 0)');
+
+    await page.addInitScript(() => window.localStorage.setItem('theme', 'light'));
+    await page.goto(PLAYWRIGHT_BASE_URL + '/dashboard', { waitUntil: 'domcontentloaded' });
+    await expect
+        .poll(async () => page.evaluate(() => document.documentElement.className))
+        .toContain('light');
+});
+
 test('test that theme can be changed to dark and light', async ({ page }) => {
     await goToProfilePage(page);
 

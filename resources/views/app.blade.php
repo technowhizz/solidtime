@@ -17,6 +17,32 @@
         <meta name="msapplication-config" content="/favicons/browserconfig.xml">
         <meta name="theme-color" content="#000000">
 
+        {{--
+            Apply the stored theme before the first paint. The Vue app only sets this class once
+            its bundle has booted, and the colour tokens live entirely inside :root.dark and
+            :root.light, so until then the background resolves to an undefined variable and the
+            page paints white. Kept deliberately in sync with resources/js/utils/theme.ts.
+        --}}
+        <script>
+            (function () {
+                var theme = 'system';
+                try {
+                    theme = window.localStorage.getItem('theme') || 'system';
+                } catch (e) {
+                    // Storage can be unavailable, fall through to the media query
+                }
+                // useStorage writes the bare string, but tolerate a JSON quoted value
+                theme = String(theme).replace(/^"|"$/g, '');
+                if (theme !== 'light' && theme !== 'dark') {
+                    // Matches theme.ts: only an explicit light preference gives light
+                    theme = window.matchMedia('(prefers-color-scheme: light)').matches
+                        ? 'light'
+                        : 'dark';
+                }
+                document.documentElement.classList.add(theme);
+            })();
+        </script>
+
         <!-- Scripts -->
         @routes
         @vite(array_filter(\Nwidart\Modules\Module::getAssets(), fn($asset) => $asset !== 'resources/css/filament/admin/theme.css'))

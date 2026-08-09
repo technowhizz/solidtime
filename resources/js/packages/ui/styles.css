@@ -152,6 +152,9 @@
     display: none;
 }
 
+/* The root element carries it too, so the first paint and any overscroll area are themed
+   rather than falling back to the browser's white canvas. */
+html,
 body {
     background-color: var(--theme-color-default-background);
 }
