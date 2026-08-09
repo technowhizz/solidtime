@@ -507,15 +507,17 @@ test('test that context menu for running entry shows stop and discard options', 
 
 test('test that context menu stop on running entry sets end time', async ({ page, ctx }) => {
     const description = 'Running stop test ' + Math.floor(1 + Math.random() * 10000);
-    await createRunningTimeEntryViaApi(ctx, description);
+    const entry = await createRunningTimeEntryViaApi(ctx, description);
 
     await goToCalendar(page);
     await openContextMenu(page, description);
 
     const [updateResponse] = await Promise.all([
+        // Match this entry specifically, so an unrelated write elsewhere on the grid
+        // cannot resolve the wait ahead of the one the click triggers
         page.waitForResponse(
             (response) =>
-                response.url().includes('/time-entries/') &&
+                response.url().includes(`/time-entries/${entry.id}`) &&
                 response.request().method() === 'PUT' &&
                 response.status() === 200
         ),
@@ -2513,9 +2515,18 @@ test.describe('Running Entry Behavior', () => {
         await createRunningTimeEntryViaApi(ctx, 'Single running test');
         await goToCalendar(page);
 
-        // Should have exactly one running-entry element
+        // Exactly one running *entry* — not one element. An entry started shortly before
+        // midnight spans two days and is drawn as one clipped segment per day column, so
+        // counting elements fails whenever the suite runs just after midnight.
         const runningEvents = page.locator('.fc-event.running-entry');
-        await expect(runningEvents).toHaveCount(1);
+        await expect(runningEvents.first()).toBeVisible();
+        await expect
+            .poll(async () =>
+                runningEvents.evaluateAll(
+                    (els) => new Set(els.map((el) => el.getAttribute('data-event-id'))).size
+                )
+            )
+            .toBe(1);
     });
 
     test('stopping running entry removes running-entry styling', async ({ page, ctx }) => {
