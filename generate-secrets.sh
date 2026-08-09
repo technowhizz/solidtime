@@ -1,0 +1,183 @@
+#!/usr/bin/env bash
+#
+# Generates every secret docker-compose.prod.example.yml needs, into an env file the
+# compose stack reads with `env_file:`.
+#
+#   ./generate-secrets.sh                    # writes ./solidtime.prod.env
+#   ./generate-secrets.sh --force            # overwrite an existing file
+#   ./generate-secrets.sh /srv/solidtime.env # write somewhere else
+#
+# Everything here is generated locally with openssl - nothing needs the app, PHP, a
+# database or a running container. What it cannot generate is the credentials of other
+# people's systems: MAIL_USERNAME / MAIL_PASSWORD and, if you want the Google Calendar
+# integration, GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET. Those stay in the compose file.
+#
+# One value pair needs a follow-up step. PASSPORT_PERSONAL_ACCESS_CLIENT_ID and
+# _SECRET are not read back from the app - they are inputs, and a matching row has to
+# exist in oauth_clients for the app to mint API tokens with them. The command to
+# create it is printed at the end and only needs running once, after the first boot.
+#
+# Do not regenerate this file for an existing installation:
+#   APP_KEY      decrypts every stored Jira and Google token - changing it orphans them.
+#   PASSPORT_*   keys sign every API token - changing them logs out every API client
+#                and the desktop/mobile apps.
+#   DB_PASSWORD  is baked into the postgres volume on first boot; changing it here
+#                without an ALTER ROLE leaves the app unable to connect.
+
+set -euo pipefail
+
+readonly OUTPUT_DEFAULT='solidtime.prod.env'
+
+force=false
+output=''
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -f | --force)
+            force=true
+            ;;
+        -h | --help)
+            sed -n '2,26p' "$0" | cut -c 3-
+            exit 0
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            exit 1
+            ;;
+        *)
+            if [ -n "$output" ]; then
+                echo "Only one output path may be given." >&2
+                exit 1
+            fi
+            output="$1"
+            ;;
+    esac
+    shift
+done
+
+output="${output:-$OUTPUT_DEFAULT}"
+
+if ! command -v openssl > /dev/null 2>&1; then
+    echo "openssl is required and was not found in PATH." >&2
+    exit 1
+fi
+
+if [ -e "$output" ] && [ "$force" != true ]; then
+    echo "$output already exists. Pass --force to overwrite it - but read the warning" >&2
+    echo "at the top of this script first: for an installation that is already running," >&2
+    echo "new secrets mean lost tokens and an unreachable database." >&2
+    exit 1
+fi
+
+# Alphanumeric only. These end up in a postgres role password and a URL-ish client
+# secret, so anything that needs escaping somewhere is more trouble than the entropy
+# it buys. 40 characters of [A-Za-z0-9] is ~238 bits.
+random_alnum() {
+    local length="$1"
+    # base64 of 2x the bytes leaves plenty of material after the non-alphanumerics
+    # are stripped, and openssl's output is finite so nothing here can SIGPIPE.
+    openssl rand -base64 "$((length * 2))" | tr -dc 'A-Za-z0-9' | cut -c "1-${length}"
+}
+
+# oauth_clients.id is a uuid column, so this has to be a real UUID rather than just a
+# random string.
+random_uuid() {
+    if [ -r /proc/sys/kernel/random/uuid ]; then
+        cat /proc/sys/kernel/random/uuid
+        return
+    fi
+
+    if command -v uuidgen > /dev/null 2>&1; then
+        uuidgen | tr 'A-F' 'a-f'
+        return
+    fi
+
+    local hex variant
+    hex="$(openssl rand -hex 16)"
+    # Version 4 in the 13th nibble, variant 10xx in the 17th.
+    variant="$(printf '%s' '89ab' | cut -c "$((0x${hex:16:1} % 4 + 1))")"
+    printf '%s-%s-4%s-%s%s-%s\n' \
+        "${hex:0:8}" "${hex:8:4}" "${hex:13:3}" \
+        "$variant" "${hex:17:3}" "${hex:20:12}"
+}
+
+# Compose expands \n inside a double quoted env_file value into a real newline, so the
+# PEM arrives in the container intact. Passport also un-escapes literal \n itself, so
+# this survives either way - including being pasted straight into a .env file.
+pem_to_single_line() {
+    awk '{ printf "%s\\n", $0 }' "$1"
+}
+
+keydir="$(mktemp -d)"
+trap 'rm -rf "$keydir"' EXIT
+chmod 700 "$keydir"
+
+# 4096-bit RSA, matching what `php artisan passport:keys` produces. openssl writes
+# PKCS#8 where passport writes PKCS#1; both are read by the same openssl underneath.
+openssl genpkey -quiet -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out "$keydir/oauth-private.key"
+openssl rsa -in "$keydir/oauth-private.key" -pubout -out "$keydir/oauth-public.key" 2> /dev/null
+
+app_key="base64:$(openssl rand -base64 32)"
+db_password="$(random_alnum 40)"
+passport_client_id="$(random_uuid)"
+passport_client_secret="$(random_alnum 40)"
+passport_private_key="$(pem_to_single_line "$keydir/oauth-private.key")"
+passport_public_key="$(pem_to_single_line "$keydir/oauth-public.key")"
+
+# 077 so the file is 0600 from the moment it exists, rather than briefly world readable.
+(
+    umask 077
+    cat > "$output" <<EOF
+# Generated by generate-secrets.sh. Keep this file, back it up, and do not commit it.
+#
+# Losing it is not recoverable by regenerating: APP_KEY decrypts the stored Jira and
+# Google credentials, and the passport keys sign every API token in circulation.
+
+# php artisan key:generate --show
+APP_KEY="${app_key}"
+
+# The app connects with DB_PASSWORD; postgres creates the role from POSTGRES_PASSWORD
+# on first boot. They have to match, so both are written here from one value.
+DB_PASSWORD="${db_password}"
+POSTGRES_PASSWORD="${db_password}"
+
+# The personal access client the API token screen mints tokens through. Unlike the
+# other values these are inputs, not outputs: the app looks up a client with this id
+# and presents this secret, so the matching oauth_clients row has to exist. See the
+# bootstrap command printed by generate-secrets.sh.
+PASSPORT_PERSONAL_ACCESS_CLIENT_ID="${passport_client_id}"
+PASSPORT_PERSONAL_ACCESS_CLIENT_SECRET="${passport_client_secret}"
+
+# php artisan passport:keys, as single line PEMs. Identical across every container.
+PASSPORT_PRIVATE_KEY="${passport_private_key}"
+PASSPORT_PUBLIC_KEY="${passport_public_key}"
+EOF
+)
+
+cat <<EOF
+Wrote $output (mode $(stat -c '%a' "$output" 2> /dev/null || stat -f '%Lp' "$output")).
+
+Still to fill in by hand, in docker-compose.prod.yml - nothing can generate them:
+
+    APP_URL, SUPER_ADMINS
+    MAIL_HOST / MAIL_USERNAME / MAIL_PASSWORD / MAIL_FROM_ADDRESS
+    GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET   (only if you want Google Calendar)
+
+Then bring the stack up - the app container runs the migrations on boot:
+
+    docker compose -f docker-compose.prod.yml up -d
+
+Once postgres is up, create the personal access client row that
+PASSPORT_PERSONAL_ACCESS_CLIENT_ID refers to. Run this once, on first install; it is
+idempotent, so a repeat is harmless:
+
+    docker compose -f docker-compose.prod.yml exec -T pgsql \\
+        psql -v ON_ERROR_STOP=1 -U solidtime -d solidtime \\
+        -c "INSERT INTO oauth_clients (id, name, secret, provider, grant_types, redirect_uris, revoked, created_at, updated_at) VALUES ('${passport_client_id}', 'API', '${passport_client_secret}', 'users', '[\\"personal_access\\"]', '[]', false, now(), now()) ON CONFLICT (id) DO NOTHING;"
+
+Skip it and the app works, but "Create API token" in Profile Settings fails with
+"personal access client is not configured".
+
+Do not run 'php artisan db:seed' to create it. That seeder wipes every table first
+and replaces them with demo organizations - it is for development only.
+EOF

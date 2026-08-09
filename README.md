@@ -89,6 +89,22 @@ We also have an examples repository [here](https://github.com/solidtime-io/self-
 
 If you do not want to self-host solidtime or try it out you can sign up for [solidtime cloud](https://www.solidtime.io/)
 
+This fork ships its own example stack, built around the images published to
+`ghcr.io/technowhizz/solidtime`:
+
+```bash
+cp docker-compose.prod.example.yml docker-compose.prod.yml
+./generate-secrets.sh                        # writes solidtime.prod.env
+# edit docker-compose.prod.yml: APP_URL, SUPER_ADMINS and the mail settings
+docker compose -f docker-compose.prod.yml up -d
+```
+
+`generate-secrets.sh` produces every value that is yours to invent - `APP_KEY`, the database
+password, the Passport signing keys and the personal access client credentials - and prints the one
+command to run after the first boot, which creates the `oauth_clients` row those credentials refer
+to. Keep `solidtime.prod.env`: `APP_KEY` decrypts the stored Jira and Google tokens, and the
+Passport keys sign every API token in circulation, so regenerating them is not recoverable.
+
 ### Google Calendar integration (optional)
 
 The Google Calendar integration is disabled until you provide an OAuth client. Without one, nothing

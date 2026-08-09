@@ -16,6 +16,8 @@ e2e
 tests
 
 docker-compose.yml
+docker-compose.prod.yml
+solidtime.prod.env
 docker/local
 
 .phpunit.cache

@@ -1,8 +1,16 @@
 # Example self-hosting stack for this fork.
 #
-# Copy to docker-compose.prod.yml, fill in the secrets marked CHANGE_ME, then:
+# Copy to docker-compose.prod.yml, generate the secrets, fill in the values marked
+# CHANGE_ME - those are other people's systems, so nothing can generate them - then:
 #
+#   ./generate-secrets.sh          # writes solidtime.prod.env next to this file
 #   docker compose -f docker-compose.prod.yml up -d
+#
+# generate-secrets.sh prints one follow-up command to run after the first boot, which
+# creates the personal access client row the API token screen needs.
+#
+# Every service reads solidtime.prod.env. postgres only needs POSTGRES_PASSWORD out of
+# it and ignores the rest.
 #
 # The image is role based: one build, and CONTAINER_MODE decides what a container does. That is
 # why app, worker and scheduler below are the same image with different modes.
@@ -15,8 +23,7 @@ x-app-env: &app-env
     APP_NAME: solidtime
     APP_ENV: production
     APP_DEBUG: 'false'
-    # php artisan key:generate --show
-    APP_KEY: 'CHANGE_ME'
+    # APP_KEY comes from solidtime.prod.env
     APP_URL: 'https://time.example.com'
     APP_FORCE_HTTPS: 'true'
     APP_ENABLE_REGISTRATION: 'false'
@@ -28,7 +35,7 @@ x-app-env: &app-env
     DB_PORT: '5432'
     DB_DATABASE: solidtime
     DB_USERNAME: solidtime
-    DB_PASSWORD: 'CHANGE_ME'
+    # DB_PASSWORD comes from solidtime.prod.env
 
     # Must be shared between the web and worker containers: a queued Jira sync writes its
     # progress from the worker while the browser polls for it through the web container.
@@ -39,14 +46,10 @@ x-app-env: &app-env
     QUEUE_CONNECTION: redis
     SESSION_DRIVER: database
 
-    # Generate once with `php artisan passport:keys`, then paste the PEM contents here. They
-    # must be identical across every container, and must survive a redeploy - regenerating them
-    # invalidates every existing API token and logs everyone out of the mobile/desktop apps.
-    PASSPORT_PRIVATE_KEY: 'CHANGE_ME'
-    PASSPORT_PUBLIC_KEY: 'CHANGE_ME'
-    # From `php artisan db:seed`, or the row in oauth_clients after first boot
-    PASSPORT_PERSONAL_ACCESS_CLIENT_ID: 'CHANGE_ME'
-    PASSPORT_PERSONAL_ACCESS_CLIENT_SECRET: 'CHANGE_ME'
+    # PASSPORT_PRIVATE_KEY, PASSPORT_PUBLIC_KEY, PASSPORT_PERSONAL_ACCESS_CLIENT_ID and
+    # PASSPORT_PERSONAL_ACCESS_CLIENT_SECRET come from solidtime.prod.env. They are shared by
+    # every container and must survive a redeploy - regenerating them invalidates every
+    # existing API token and logs everyone out of the mobile/desktop apps.
 
     MAIL_MAILER: smtp
     MAIL_HOST: 'smtp.example.com'
@@ -75,6 +78,8 @@ services:
     app:
         image: ghcr.io/technowhizz/solidtime:latest
         restart: unless-stopped
+        env_file:
+            - solidtime.prod.env
         environment:
             <<: *app-env
             CONTAINER_MODE: http
@@ -96,6 +101,8 @@ services:
     worker:
         image: ghcr.io/technowhizz/solidtime:latest
         restart: unless-stopped
+        env_file:
+            - solidtime.prod.env
         environment:
             <<: *app-env
             CONTAINER_MODE: worker
@@ -103,6 +110,15 @@ services:
             # config or leak. --tries=1 matches the sync job, which does not retry: a retry
             # would re-plan against a Jira the failed attempt may already have changed.
             WORKER_COMMAND: 'php /var/www/html/artisan queue:work --tries=1 --max-time=3600'
+        # The image inherits FrankenPHP's healthcheck, which curls Caddy's admin endpoint - so
+        # a container that is not serving HTTP is permanently "unhealthy". The image's own
+        # healthcheck script reads CONTAINER_MODE and checks supervisor instead.
+        healthcheck:
+            test: ['CMD', 'healthcheck']
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 30s
         volumes:
             - storage:/var/www/html/storage
         depends_on:
@@ -114,9 +130,20 @@ services:
     scheduler:
         image: ghcr.io/technowhizz/solidtime:latest
         restart: unless-stopped
+        env_file:
+            - solidtime.prod.env
         environment:
             <<: *app-env
             CONTAINER_MODE: scheduler
+        # The image inherits FrankenPHP's healthcheck, which curls Caddy's admin endpoint - so
+        # a container that is not serving HTTP is permanently "unhealthy". The image's own
+        # healthcheck script reads CONTAINER_MODE and checks supervisor instead.
+        healthcheck:
+            test: ['CMD', 'healthcheck']
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 30s
         volumes:
             - storage:/var/www/html/storage
         depends_on:
@@ -126,10 +153,12 @@ services:
     pgsql:
         image: postgres:17-alpine
         restart: unless-stopped
+        # Only POSTGRES_PASSWORD is used from here; postgres ignores the app's variables.
+        env_file:
+            - solidtime.prod.env
         environment:
             POSTGRES_DB: solidtime
             POSTGRES_USER: solidtime
-            POSTGRES_PASSWORD: 'CHANGE_ME'
         volumes:
             - pgsql:/var/lib/postgresql/data
         healthcheck:
