@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Widgets;
 
 use Filament\Widgets\Widget;
-use Illuminate\Support\Facades\Cache;
 
 class ServerOverview extends Widget
 {
@@ -20,19 +19,15 @@ class ServerOverview extends Widget
         $currentVersion = config('app.version');
         /** @var string|null $build */
         $build = config('app.build');
-        $latestVersion = Cache::get('latest_version', null);
 
-        $needsUpdate = false;
-        if ($latestVersion !== null && $currentVersion !== null && version_compare($latestVersion, $currentVersion) > 0) {
-            $needsUpdate = true;
-        }
+        // Upstream also showed whether a newer version existed, which it learned by posting this
+        // installation's version and URL to app.solidtime.io. That call is gone, so there is
+        // nothing to compare against.
 
         return [
             'version' => $currentVersion,
             'build' => $build,
             'environment' => config('app.env'),
-            'currentVersion' => $latestVersion,
-            'needsUpdate' => $needsUpdate,
         ];
     }
 }

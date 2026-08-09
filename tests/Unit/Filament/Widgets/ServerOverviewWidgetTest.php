@@ -26,12 +26,11 @@ class ServerOverviewWidgetTest extends FilamentTestCase
         $this->actingAs($user);
     }
 
-    public function test_shows_version_and_build_it_no_information_about_the_current_version_exists(): void
+    public function test_shows_version_and_build(): void
     {
         // Arrange
         Config::set('app.version', '1.0.0');
         Config::set('app.build', 'ABC123');
-        Cache::forget('latest_version');
 
         // Act
         $response = Livewire::test(ServerOverview::class);
@@ -40,33 +39,15 @@ class ServerOverviewWidgetTest extends FilamentTestCase
         $response->assertSuccessful();
         $response->assertSee('1.0.0');
         $response->assertSee('ABC123');
-        $response->assertDontSee('Update available');
-        $response->assertDontSee('Current version');
     }
 
-    public function test_show_version_is_current_when_the_latest_version_is_the_same_as_the_current_version(): void
+    public function test_does_not_show_whether_an_update_is_available(): void
     {
         // Arrange
         Config::set('app.version', '1.0.0');
         Config::set('app.build', 'ABC123');
-        Cache::put('latest_version', '1.0.0');
-
-        // Act
-        $response = Livewire::test(ServerOverview::class);
-
-        // Assert
-        $response->assertSuccessful();
-        $response->assertSee('1.0.0');
-        $response->assertSee('ABC123');
-        $response->assertDontSee('Update available');
-        $response->assertSee('Current version');
-    }
-
-    public function test_shows_update_available(): void
-    {
-        // Arrange
-        Config::set('app.version', '1.0.0');
-        Config::set('app.build', 'ABC123');
+        // Upstream filled this from a twice daily POST to app.solidtime.io. That call is gone,
+        // so a stale value left over from before the upgrade must not resurface in the panel.
         Cache::put('latest_version', '1.0.1');
 
         // Act
@@ -74,10 +55,8 @@ class ServerOverviewWidgetTest extends FilamentTestCase
 
         // Assert
         $response->assertSuccessful();
-        $response->assertSee('1.0.0');
-        $response->assertSee('ABC123');
-        $response->assertSee('Update available');
+        $response->assertDontSee('Update available');
         $response->assertDontSee('Current version');
-        $response->assertSee('1.0.1');
+        $response->assertDontSee('1.0.1');
     }
 }

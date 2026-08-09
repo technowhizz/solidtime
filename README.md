@@ -72,6 +72,15 @@ following. Everything else behaves as upstream.
   with more than 19 projects necessarily had duplicates.
 - **Per-user colour for time without a project**, instead of a hardcoded grey.
 
+### Removals
+
+- **No phone home.** Upstream schedules two twice-daily POSTs to `app.solidtime.io`: one sending
+  usage counts (users, organizations, projects, clients, tasks, time entries, audit rows) and one
+  sending this installation's version and `APP_URL` to check for a newer release. Both were on by
+  default. The commands, the service behind them and their scheduling flags are gone, so no part
+  of this fork contacts solidtime's servers. The admin panel consequently shows the running
+  version and build but no "update available" notice.
+
 ## Self Hosting
 
 If you are looking into self-hosting solidtime, you can find the guides [here](https://docs.solidtime.io/self-hosting/intro)
