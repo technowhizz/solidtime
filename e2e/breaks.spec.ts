@@ -9,6 +9,7 @@ import {
     stoppedTimeEntryResponse,
 } from './utils/currentTimeEntry';
 import { createTimeEntryViaApi, updateOrganizationSettingViaApi } from './utils/api';
+import { scrollIntoViewCentred } from './utils/scroll';
 
 async function goToDashboard(page: Page) {
     await page.goto(PLAYWRIGHT_BASE_URL + '/dashboard');
@@ -146,12 +147,19 @@ test('test that disabling breaks hides every break-creation entry point', async 
     await page.goto(PLAYWRIGHT_BASE_URL + '/calendar');
     await expect(page.locator('.fc')).toBeVisible();
     const event = page.locator('.fc-event').filter({ hasText: 'Regular work' }).first();
-    await event.scrollIntoViewIfNeeded();
+    // Centred, not scrollIntoViewIfNeeded: that stops the moment the element is visible, which
+    // leaves it flush against the bottom edge, and the click below it then lands outside the
+    // viewport entirely. No menu opens and the failure reads as an unexplained timeout.
+    await scrollIntoViewCentred(event);
     await expect(event).toBeVisible();
 
     const box = await event.boundingBox();
     expect(box).not.toBeNull();
-    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height + 40, { button: 'right' });
+    const clickY = box!.y + box!.height + 40;
+    // Fail loudly here rather than as a mystery timeout on the menu assertion below
+    expect(clickY).toBeLessThan(page.viewportSize()!.height);
+
+    await page.mouse.click(box!.x + box!.width / 2, clickY, { button: 'right' });
     await expect(page.getByRole('menu')).toBeVisible();
     await expect(page.getByRole('menuitem', { name: 'Create Time Entry' })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: 'Add Break' })).toHaveCount(0);

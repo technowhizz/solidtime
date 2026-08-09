@@ -15,6 +15,7 @@ import {
     updateUserProfileViaApi,
     updateOrganizationSettingViaApi,
 } from './utils/api';
+import { scrollIntoViewCentred } from './utils/scroll';
 
 async function goToCalendar(page: Page) {
     await page.goto(PLAYWRIGHT_BASE_URL + '/calendar');
@@ -3271,15 +3272,20 @@ test('test that calendar context menu can add a break that fills the gap between
 
     await goToCalendar(page);
     const eventA = page.locator('.fc-event').filter({ hasText: 'Gap work A' }).first();
-    await eventA.scrollIntoViewIfNeeded();
+    // Centred, not scrollIntoViewIfNeeded: that stops the moment the element is visible, which
+    // leaves it flush against the bottom edge, and the click below it then lands outside the
+    // viewport entirely. No menu opens and the failure reads as an unexplained timeout.
+    await scrollIntoViewCentred(eventA);
     await expect(eventA).toBeVisible();
 
     // Right-click just below entry A (inside the gap, in the same day column)
     const box = await eventA.boundingBox();
     expect(box).not.toBeNull();
-    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height + 15, {
-        button: 'right',
-    });
+    const clickY = box!.y + box!.height + 15;
+    // Fail loudly here rather than as a mystery timeout on the menu assertion below
+    expect(clickY).toBeLessThan(page.viewportSize()!.height);
+
+    await page.mouse.click(box!.x + box!.width / 2, clickY, { button: 'right' });
     await expect(page.getByRole('menu')).toBeVisible();
     await page.getByRole('menuitem', { name: 'Add Break' }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
