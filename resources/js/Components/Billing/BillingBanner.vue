@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAppName } from '@/utils/appName';
 import MainContainer from '@/packages/ui/src/MainContainer.vue';
 import { CheckBadgeIcon, XMarkIcon, XCircleIcon } from '@heroicons/vue/16/solid';
 import { Link } from '@inertiajs/vue3';
@@ -42,6 +43,8 @@ const showBlackFridayBanner = computed(() => {
     const blackFriday = new Date(2024, 10, 30);
     return today < blackFriday;
 });
+
+const appName = useAppName();
 </script>
 
 <template>
@@ -114,7 +117,7 @@ const showBlackFridayBanner = computed(() => {
                         Your trial expires in {{ daysLeftInTrial() }} days.
                     </span>
                     <span class="hidden md:inline">
-                        To continue using all features & support the development of solidtime,
+                        To continue using all features & support the development of {{ appName }},
                         please upgrade your plan.
                     </span>
                 </div>
@@ -168,7 +171,7 @@ const showBlackFridayBanner = computed(() => {
                 <div class="flex-1 space-x-1">
                     <span class="font-medium"> You are currently using the Free Plan. </span>
                     <span class="hidden md:inline">
-                        To unlock all premium features & support the development of solidtime,
+                        To unlock all premium features & support the development of {{ appName }},
                         please upgrade your plan.</span
                     >
                 </div>

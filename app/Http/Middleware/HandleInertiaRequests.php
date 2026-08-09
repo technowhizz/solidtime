@@ -50,6 +50,9 @@ class HandleInertiaRequests extends Middleware
         $currentOrganization = $request->user()?->currentOrganization;
 
         return array_merge(parent::share($request), [
+            // Single source of truth for the product name in the UI, so renaming the app is a
+            // one line change rather than a hunt through every Vue file
+            'app_name' => config('app.name'),
             'has_billing_extension' => $hasBilling,
             'has_invoicing_extension' => $hasInvoicing,
             'has_services_extension' => $hasServices,

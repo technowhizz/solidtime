@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAppName } from '@/utils/appName';
 import PrimaryButton from '@/packages/ui/src/Buttons/PrimaryButton.vue';
 import { computed, onMounted, ref } from 'vue';
 import { useNotificationsStore } from '@/utils/notification';
@@ -138,6 +139,8 @@ const filenames = computed(() => {
 const importType = ref<ImportType | null>(null);
 
 const showResultModal = ref(false);
+
+const appName = useAppName();
 </script>
 
 <template>
@@ -175,7 +178,7 @@ const showResultModal = ref(false);
             <div class="py-2 px-3 sm:px-4 text-sm flex items-center space-x-3">
                 <InformationCircleIcon class="h-5 min-w-0 w-5 text-bg-tertiary" />
                 <p class="flex-1">
-                    Import existing data from Toggl, Clockify or a different solidtime instance.
+                    Import existing data from Toggl, Clockify or a different {{ appName }} instance.
                     Please select the type of data you want to import and follow the instructions.
                 </p>
             </div>

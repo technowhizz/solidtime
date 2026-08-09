@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAppName } from '@/utils/appName';
 import { computed, inject, ref, type ComputedRef } from 'vue';
 import ActionSection from '@/Components/ActionSection.vue';
 import ConfirmationModal from '@/Components/ConfirmationModal.vue';
@@ -36,6 +37,8 @@ async function disconnectGoogleCalendar() {
         isDisconnecting.value = false;
     }
 }
+
+const appName = useAppName();
 </script>
 
 <template>
@@ -82,8 +85,8 @@ async function disconnectGoogleCalendar() {
                 </p>
 
                 <p v-else-if="!isConnected" class="text-sm text-text-secondary">
-                    solidtime only asks for read-only access to your calendar events and your email
-                    address, and never stores the content of your events.
+                    {{ appName }} only asks for read-only access to your calendar events and your
+                    email address, and never stores the content of your events.
                 </p>
 
                 <div class="flex items-center gap-3">
@@ -115,8 +118,8 @@ async function disconnectGoogleCalendar() {
         <template #title> Disconnect Google Calendar </template>
 
         <template #content>
-            Your calendar events will no longer be shown in solidtime and the access to your Google
-            account will be revoked. Time entries you already created are not affected.
+            Your calendar events will no longer be shown in {{ appName }} and the access to your
+            Google account will be revoked. Time entries you already created are not affected.
         </template>
 
         <template #footer>

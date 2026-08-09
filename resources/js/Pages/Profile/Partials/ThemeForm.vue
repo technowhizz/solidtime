@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAppName } from '@/utils/appName';
 import FormSection from '@/Components/FormSection.vue';
 import { Field, FieldLabel, FieldDescription } from '@/packages/ui/src/field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/packages/ui/src';
@@ -8,13 +9,15 @@ import { themeSetting } from '@/utils/theme';
 import { groupSimilarTimeEntriesSetting } from '@/utils/timeEntryGrouping';
 
 const preferredColor = usePreferredColorScheme();
+
+const appName = useAppName();
 </script>
 
 <template>
     <FormSection>
         <template #title> Theme</template>
 
-        <template #description> Choose how you want solidtime to look on your device </template>
+        <template #description> Choose how you want {{ appName }} to look on your device </template>
 
         <template #form>
             <!-- Theme -->
