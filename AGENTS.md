@@ -118,15 +118,27 @@ directory. Build features in `app/`, not as an extension.
 - Playwright: `playwright/config.ts` reads `PLAYWRIGHT_BASE_URL` / `MAILPIT_BASE_URL`. Run with
   **`--workers=1`** locally; higher parallelism produces ~6 spurious failures on a loaded machine.
 
-### Known-failing e2e baseline
+### There is no known-failing baseline — a red test is a real signal
 
-These fail on a clean checkout in a local (non-CI) environment. Diff against them before blaming
-your change:
+An earlier version of this file listed four "always red locally" tests. That was wrong, and
+treating them as expected noise hid a genuine product bug for several rounds. They are all fixed;
+the suite should be green. If something is red, investigate it rather than assuming it is known.
 
-- `breaks.spec.ts` — org-level breaks setting respected for employees
-- `calendar.spec.ts` — context menu stop on running entry sets end time
-- `calendar.spec.ts` — employee can only see their own time entries
-- `calendar.spec.ts` — running entry has distinct running-entry class
+Two failure modes cost real time before, so check for them first:
+
+**Local time of day.** Several calendar tests build fixtures relative to `now`, and the grid only
+renders the visible week. A running entry is created starting *10 minutes ago*, so just after
+midnight it spans two days and is drawn as one clipped segment per day column — assertions that
+count DOM elements then see two. Assert on distinct `data-event-id` values, not element counts.
+
+**Which day ends the week.** The week starts **Monday** (`User` model defaults `week_start`), so
+the last visible column is **Sunday**. Tests that need "today and tomorrow both visible" must skip
+on Sunday, and tests that need the previous day must skip on Monday. Guarding Saturday is the
+Sunday-start assumption and is wrong here — it silently fails one day in seven.
+
+**Contention.** Tests using the `employee` / `admin` fixtures spin up a second registered user in a
+second browser context and are the slowest in the suite (~10s each). They time out under a loaded
+full-suite run while passing in isolation. Run with `--workers=1` before concluding anything.
 
 ## The calendar (`resources/js/packages/ui/src/FullCalendar/`)
 
