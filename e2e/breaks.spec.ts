@@ -212,12 +212,22 @@ test.describe('Org-level breaks setting', () => {
         ).toBeVisible();
         await expect(employeePage.getByRole('menuitem', { name: 'Start Break' })).toHaveCount(0);
         await employeePage.keyboard.press('Escape');
+        // The dropdown dismisses asynchronously and owns the pointer and focus until it has.
+        // Typing into the tracker before then can leave the description uncommitted, the timer
+        // starts with an empty one, and the wait below — which is for this exact description —
+        // never matches and hangs to the timeout instead of failing.
+        await expect(
+            employeePage.getByRole('menuitem', { name: 'Switch to simple mode' })
+        ).toHaveCount(0);
 
         // With an active timer the break (coffee) button is not shown either
-        await employeePage.getByTestId('time_entry_description').fill('Employee work');
+        const employeeDescription = employeePage.getByTestId('time_entry_description');
+        await expect(employeeDescription).toBeEditable();
+        await employeeDescription.fill('Employee work');
+        await expect(employeeDescription).toHaveValue('Employee work');
         await Promise.all([
             newTimeEntryResponse(employeePage, { description: 'Employee work', type: 'work' }),
-            employeePage.getByTestId('time_entry_description').press('Enter'),
+            employeeDescription.press('Enter'),
         ]);
         await assertThatTimerHasStarted(employeePage);
         await expect(employeePage.getByRole('button', { name: 'Take a break' })).toHaveCount(0);
