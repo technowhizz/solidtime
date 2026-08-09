@@ -1,0 +1,164 @@
+# Example self-hosting stack for this fork.
+#
+# Copy to docker-compose.prod.yml, fill in the secrets marked CHANGE_ME, then:
+#
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# The image is role based: one build, and CONTAINER_MODE decides what a container does. That is
+# why app, worker and scheduler below are the same image with different modes.
+#
+# The worker is NOT optional in this fork. A Jira sync runs as a queued job, so without a worker
+# the sync dialog would sit at "queued" forever. Upstream ships QUEUE_CONNECTION=sync, which
+# runs jobs inline and blocks the HTTP request instead.
+
+x-app-env: &app-env
+    APP_NAME: solidtime
+    APP_ENV: production
+    APP_DEBUG: 'false'
+    # php artisan key:generate --show
+    APP_KEY: 'CHANGE_ME'
+    APP_URL: 'https://time.example.com'
+    APP_FORCE_HTTPS: 'true'
+    APP_ENABLE_REGISTRATION: 'false'
+    SUPER_ADMINS: 'you@example.com'
+
+    # Postgres only. The app uses jsonb, partial unique indexes and date_bin().
+    DB_CONNECTION: pgsql
+    DB_HOST: pgsql
+    DB_PORT: '5432'
+    DB_DATABASE: solidtime
+    DB_USERNAME: solidtime
+    DB_PASSWORD: 'CHANGE_ME'
+
+    # Must be shared between the web and worker containers: a queued Jira sync writes its
+    # progress from the worker while the browser polls for it through the web container.
+    # "file" would give each container its own copy and the progress bar would never move.
+    CACHE_DRIVER: redis
+    REDIS_HOST: redis
+    REDIS_PORT: '6379'
+    QUEUE_CONNECTION: redis
+    SESSION_DRIVER: database
+
+    # Generate once with `php artisan passport:keys`, then paste the PEM contents here. They
+    # must be identical across every container, and must survive a redeploy - regenerating them
+    # invalidates every existing API token and logs everyone out of the mobile/desktop apps.
+    PASSPORT_PRIVATE_KEY: 'CHANGE_ME'
+    PASSPORT_PUBLIC_KEY: 'CHANGE_ME'
+    # From `php artisan db:seed`, or the row in oauth_clients after first boot
+    PASSPORT_PERSONAL_ACCESS_CLIENT_ID: 'CHANGE_ME'
+    PASSPORT_PERSONAL_ACCESS_CLIENT_SECRET: 'CHANGE_ME'
+
+    MAIL_MAILER: smtp
+    MAIL_HOST: 'smtp.example.com'
+    MAIL_PORT: '587'
+    MAIL_USERNAME: 'CHANGE_ME'
+    MAIL_PASSWORD: 'CHANGE_ME'
+    MAIL_FROM_ADDRESS: 'no-reply@example.com'
+    MAIL_FROM_NAME: solidtime
+
+    # Local disk keeps this stack to four services. Swap to s3 with the S3_* variables if you
+    # would rather not manage the volume, ex. for profile photos and report exports.
+    FILESYSTEM_DISK: local
+    PUBLIC_FILESYSTEM_DISK: public
+
+    # Optional: PDF report export. Omit the service and this variable to do without it.
+    GOTENBERG_URL: 'http://gotenberg:3000'
+
+    # Optional: Google Calendar. Leave unset and the integration is hidden entirely.
+    #GOOGLE_CLIENT_ID: ''
+    #GOOGLE_CLIENT_SECRET: ''
+
+    # Jira needs nothing here. The site URL is set per organization in Organization Settings and
+    # each member supplies their own API token in Profile Settings, encrypted with APP_KEY.
+
+services:
+    app:
+        image: ghcr.io/technowhizz/solidtime:latest
+        restart: unless-stopped
+        environment:
+            <<: *app-env
+            CONTAINER_MODE: http
+            OCTANE_SERVER: frankenphp
+            # Runs migrations on boot. Fine for a single app container; turn it off and run
+            # `docker compose run --rm app php artisan migrate --force` yourself if you ever
+            # scale this service past one replica.
+            AUTO_DB_MIGRATE: 'true'
+        ports:
+            - '8000:8000'
+        volumes:
+            - storage:/var/www/html/storage
+        depends_on:
+            pgsql:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+
+    worker:
+        image: ghcr.io/technowhizz/solidtime:latest
+        restart: unless-stopped
+        environment:
+            <<: *app-env
+            CONTAINER_MODE: worker
+            # --max-time recycles the worker hourly so a long-lived process cannot hold a stale
+            # config or leak. --tries=1 matches the sync job, which does not retry: a retry
+            # would re-plan against a Jira the failed attempt may already have changed.
+            WORKER_COMMAND: 'php /var/www/html/artisan queue:work --tries=1 --max-time=3600'
+        volumes:
+            - storage:/var/www/html/storage
+        depends_on:
+            pgsql:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+
+    scheduler:
+        image: ghcr.io/technowhizz/solidtime:latest
+        restart: unless-stopped
+        environment:
+            <<: *app-env
+            CONTAINER_MODE: scheduler
+        volumes:
+            - storage:/var/www/html/storage
+        depends_on:
+            pgsql:
+                condition: service_healthy
+
+    pgsql:
+        image: postgres:17-alpine
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: solidtime
+            POSTGRES_USER: solidtime
+            POSTGRES_PASSWORD: 'CHANGE_ME'
+        volumes:
+            - pgsql:/var/lib/postgresql/data
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U solidtime -d solidtime']
+            interval: 5s
+            timeout: 5s
+            retries: 10
+
+    redis:
+        image: redis:7-alpine
+        restart: unless-stopped
+        command: ['redis-server', '--appendonly', 'yes']
+        volumes:
+            - redis:/data
+        healthcheck:
+            test: ['CMD', 'redis-cli', 'ping']
+            interval: 5s
+            timeout: 5s
+            retries: 10
+
+    # Optional - PDF report export only. Drop this and GOTENBERG_URL if you do not need it.
+    gotenberg:
+        image: gotenberg/gotenberg:8
+        restart: unless-stopped
+        command:
+            - gotenberg
+            - --api-timeout=60s
+
+volumes:
+    pgsql:
+    redis:
+    storage:
