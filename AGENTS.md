@@ -124,7 +124,7 @@ An earlier version of this file listed four "always red locally" tests. That was
 treating them as expected noise hid a genuine product bug for several rounds. They are all fixed;
 the suite should be green. If something is red, investigate it rather than assuming it is known.
 
-Two failure modes cost real time before, so check for them first:
+Three failure modes cost real time before, so check for them first:
 
 **Local time of day.** Several calendar tests build fixtures relative to `now`, and the grid only
 renders the visible week. A running entry is created starting *10 minutes ago*, so just after
@@ -136,9 +136,17 @@ the last visible column is **Sunday**. Tests that need "today and tomorrow both 
 on Sunday, and tests that need the previous day must skip on Monday. Guarding Saturday is the
 Sunday-start assumption and is wrong here — it silently fails one day in seven.
 
-**Contention.** Tests using the `employee` / `admin` fixtures spin up a second registered user in a
-second browser context and are the slowest in the suite (~10s each). They time out under a loaded
-full-suite run while passing in isolation. Run with `--workers=1` before concluding anything.
+**A Playwright timeout here usually means a hang, not slowness.** The helpers in
+`e2e/utils/currentTimeEntry.ts` wait for a response matching a *specific payload* — a particular
+description, type and tag set. If the app sends the request with anything else, nothing ever
+matches and the test sits until its ceiling, reporting a bare timeout with no hint at the cause.
+Resist raising the timeout: `breaks.spec.ts` already had 60s via `test.describe.configure` and
+still stalled, because nothing was ever going to arrive. Find out what the app actually sent.
+
+The usual cause is interacting before the UI is ready. Two guards, both already the convention in
+the passing tests: `await expect(field).toBeEditable()` before typing, and after dismissing a
+reka-ui dropdown with Escape, wait for one of its items to reach `toHaveCount(0)` — the layer
+tears down asynchronously and owns focus until it has, so typing underneath it can be swallowed.
 
 ## The calendar (`resources/js/packages/ui/src/FullCalendar/`)
 
