@@ -8,6 +8,7 @@ import type { Permissions } from '@/types/jetstream';
 import OrganizationBillableRate from '@/Pages/Teams/Partials/OrganizationBillableRate.vue';
 import OrganizationFormatSettings from '@/Pages/Teams/Partials/OrganizationFormatSettings.vue';
 import OrganizationTimeEntrySettings from '@/Pages/Teams/Partials/OrganizationTimeEntrySettings.vue';
+import OrganizationJiraSettings from '@/Pages/Teams/Partials/OrganizationJiraSettings.vue';
 import { onMounted, ref } from 'vue';
 import { useOrganizationStore } from '@/utils/useOrganization';
 import { storeToRefs } from 'pinia';
@@ -51,6 +52,9 @@ onMounted(async () => {
 
                     <SectionBorder v-if="permissions.canUpdateTeam" />
                     <OrganizationTimeEntrySettings v-if="permissions.canUpdateTeam" />
+
+                    <SectionBorder v-if="permissions.canUpdateTeam" />
+                    <OrganizationJiraSettings v-if="permissions.canUpdateTeam" />
 
                     <template v-if="permissions.canDeleteTeam">
                         <SectionBorder />

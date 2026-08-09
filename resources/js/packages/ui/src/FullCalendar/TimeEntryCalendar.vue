@@ -46,6 +46,7 @@ import {
 import { Coffee } from '@lucide/vue';
 import type { ActivityPeriod } from './activityTypes';
 import type { ExternalCalendarEvent } from './externalCalendarTypes';
+import type { ExternalSyncBadges } from '../TimeEntry/externalSyncTypes';
 import { TIME_AXIS_WIDTH, type DayEvent } from './calendarTypes';
 import { DEFAULT_PIXELS_PER_HOUR } from './calendarSettings';
 import { useCalendarGrid } from './useCalendarGrid';
@@ -84,6 +85,8 @@ const props = defineProps<{
     activityPeriods?: ActivityPeriod[];
     // Read-only events from a connected external calendar, drawn in their own lane
     externalCalendarEvents?: ExternalCalendarEvent[];
+    /** Sync state per time entry id against an external issue tracker, if the page tracks one. */
+    externalSyncBadges?: ExternalSyncBadges;
     loading?: boolean;
 
     enableEstimatedTime: boolean;
@@ -628,7 +631,14 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                 @zoom-in="zoomIn"
                 @zoom-out="zoomOut"
                 @change-view="handleChangeView"
-                @update:settings="onSettingsUpdate" />
+                @update:settings="onSettingsUpdate">
+                <template #actions>
+                    <slot name="toolbar-actions"></slot>
+                </template>
+                <template #extra-settings>
+                    <slot name="calendar-settings"></slot>
+                </template>
+            </CalendarToolbar>
 
             <ContextMenu v-model:open="contextMenuOpen">
                 <ContextMenuTrigger
@@ -753,6 +763,7 @@ function getEventDurationSeconds(dayEvent: DayEvent, dayStr: string): number {
                                             :external-event-boxes="
                                                 externalEventBoxesForDay(day.format('YYYY-MM-DD'))
                                             "
+                                            :external-sync-badges="externalSyncBadges"
                                             :day-events="
                                                 eventsByDay[day.format('YYYY-MM-DD')] || []
                                             "

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ExternalSyncBadges } from '@/packages/ui/src/TimeEntry/externalSyncTypes';
 import { computed, inject, type ComputedRef } from 'vue';
 import { useBreaksEnabled } from '@/packages/ui/src/utils/useBreaksEnabled';
 import { XMarkIcon } from '@heroicons/vue/16/solid';
@@ -43,6 +44,8 @@ const props = defineProps<{
     formatDuration: (seconds: number) => string;
     cellStatuses: Record<string, CellSaveStatus>;
     cellPendingSeconds: Record<string, number>;
+    /** Sync state per time entry id, when the page tracks one. */
+    externalSyncBadges?: ExternalSyncBadges;
 }>();
 
 const emit = defineEmits<{
@@ -134,6 +137,7 @@ function hasRunningEntry(dayIndex: number): boolean {
             :readonly="cellsReadonly"
             :save-status="cellStatuses[makeCellStatusKey(row.key, dayIndex)]"
             :pending-seconds="cellPendingSeconds[makeCellStatusKey(row.key, dayIndex)]"
+            :external-sync-badges="externalSyncBadges"
             @update="(seconds) => emit('cellUpdate', dayIndex, seconds)" />
 
         <!-- Row total -->

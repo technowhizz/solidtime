@@ -6,6 +6,7 @@ namespace App\Http\Middleware;
 
 use App\Service\BillingContract;
 use App\Service\GoogleCalendar\GoogleCalendarConfig;
+use App\Service\Jira\JiraConfig;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Nwidart\Modules\Facades\Module;
@@ -57,6 +58,9 @@ class HandleInertiaRequests extends Middleware
             'has_invoicing_extension' => $hasInvoicing,
             'has_services_extension' => $hasServices,
             'google_calendar_enabled' => app(GoogleCalendarConfig::class)->isConfigured(),
+            // Per organization rather than per installation: an admin points it at their Jira
+            // site, and members of an organization without one never see the integration
+            'jira_enabled' => $currentOrganization !== null && app(JiraConfig::class)->isConfigured($currentOrganization),
             'billing' => $currentOrganization !== null ? [
                 'has_subscription' => $billing->hasSubscription($currentOrganization),
                 'has_trial' => $billing->hasTrial($currentOrganization),

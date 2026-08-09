@@ -5,6 +5,8 @@ import { formatHumanReadableDuration, getDayJsInstance } from '../utils/time';
 import type { Organization } from '@/packages/api/src';
 import { Coffee } from '@lucide/vue';
 import { ExclamationTriangleIcon } from '@heroicons/vue/20/solid';
+import ExternalSyncIndicator from '../TimeEntry/ExternalSyncIndicator.vue';
+import type { ExternalSyncBadge } from '../TimeEntry/externalSyncTypes';
 
 const props = defineProps<{
     title: string;
@@ -16,6 +18,8 @@ const props = defineProps<{
     end?: string | Date | null;
     isBreak?: boolean;
     isMisplacedBreak?: boolean;
+    /** Sync state against an external issue tracker, if the page supplies one. */
+    syncBadge?: ExternalSyncBadge | null;
 }>();
 
 const effectiveDurationSeconds = computed(() => {
@@ -90,6 +94,7 @@ const titleLineClamp = computed(() => {
             <div class="fc-event-text min-h-0 overflow-hidden">
                 <div class="font-semibold flex items-start gap-1">
                     <Coffee v-if="isBreak" class="w-3 h-3 shrink-0" />
+                    <ExternalSyncIndicator :badge="syncBadge ?? null" small class="mt-[3px]" />
                     <span class="fc-event-title" :style="{ WebkitLineClamp: titleLineClamp }">{{
                         title
                     }}</span>

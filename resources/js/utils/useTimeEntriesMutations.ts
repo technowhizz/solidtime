@@ -36,6 +36,9 @@ export function useTimeEntriesMutations() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
+            // The Jira sync states are computed from these entries, so they are stale now too.
+            // The "no ticket" dots are derived on the client and need no invalidation.
+            queryClient.invalidateQueries({ queryKey: ['jira', 'syncStatus'] });
         },
     });
 
@@ -58,6 +61,9 @@ export function useTimeEntriesMutations() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
+            // The Jira sync states are computed from these entries, so they are stale now too.
+            // The "no ticket" dots are derived on the client and need no invalidation.
+            queryClient.invalidateQueries({ queryKey: ['jira', 'syncStatus'] });
         },
     });
 
@@ -105,6 +111,9 @@ export function useTimeEntriesMutations() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
+            // The Jira sync states are computed from these entries, so they are stale now too.
+            // The "no ticket" dots are derived on the client and need no invalidation.
+            queryClient.invalidateQueries({ queryKey: ['jira', 'syncStatus'] });
         },
     });
 
@@ -127,6 +136,9 @@ export function useTimeEntriesMutations() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
+            // The Jira sync states are computed from these entries, so they are stale now too.
+            // The "no ticket" dots are derived on the client and need no invalidation.
+            queryClient.invalidateQueries({ queryKey: ['jira', 'syncStatus'] });
         },
     });
 
@@ -152,6 +164,9 @@ export function useTimeEntriesMutations() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['timeEntries'] });
+            // The Jira sync states are computed from these entries, so they are stale now too.
+            // The "no ticket" dots are derived on the client and need no invalidation.
+            queryClient.invalidateQueries({ queryKey: ['jira', 'syncStatus'] });
         },
     });
 

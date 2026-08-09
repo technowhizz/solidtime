@@ -36,6 +36,7 @@ import { useTimesheetRowMutations } from '@/utils/timesheet/useTimesheetRowMutat
 import { useTimesheetRowDeletion } from '@/utils/timesheet/useTimesheetRowDeletion';
 import { useCopyLastWeek } from '@/utils/timesheet/useCopyLastWeek';
 import { useCurrentTimeEntryStore } from '@/utils/useCurrentTimeEntry';
+import { useJiraIndicators } from '@/utils/useJiraQuery';
 import type { CreateClientBody, CreateProjectBody, Project, Client, Tag } from '@/packages/api/src';
 
 // ── Week state ────────────────────────────────────────────────────
@@ -55,6 +56,15 @@ const {
 // The query fetches one padding day on each side of the week so that entries
 // crossing midnight at the week edges are known to the break-placement solver.
 const { data, isPending } = useTimesheetQuery(weekStart, weekEnd);
+
+// weekDays are already local YYYY-MM-DD, which is exactly what the status endpoint wants
+const jiraStartDate = computed(() => weekDays.value[0] ?? null);
+const jiraEndDate = computed(() => weekDays.value[weekDays.value.length - 1] ?? null);
+const { externalSyncBadges } = useJiraIndicators(
+    jiraStartDate,
+    jiraEndDate,
+    () => timeEntries.value
+);
 const allTimeEntries = computed(() => data.value?.data ?? []);
 // The grid and week-scoped features only see entries starting in the visible week.
 const timeEntries = computed(() => {
@@ -239,6 +249,7 @@ async function createTag(name: string): Promise<Tag | undefined> {
                 :cell-statuses="cellStatus"
                 :cell-pending-seconds="cellPendingSeconds"
                 :misplaced-break-dates="misplacedBreakDates"
+                :external-sync-badges="externalSyncBadges"
                 @remove-row="handleRemoveRow"
                 @cell-update="handleCellUpdate"
                 @project-task-change="

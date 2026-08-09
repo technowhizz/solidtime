@@ -57,6 +57,77 @@ const GoogleCalendarEventResource = z
     })
     .passthrough();
 const GoogleCalendarEventCollection = z.array(GoogleCalendarEventResource);
+const JiraConnectionResource = z
+    .object({
+        is_configured: z.boolean(),
+        site_url: z.union([z.string(), z.null()]),
+        is_connected: z.boolean(),
+        email: z.union([z.string(), z.null()]),
+        display_name: z.union([z.string(), z.null()]),
+        sync_from_date: z.union([z.string(), z.null()]),
+        requires_reauthentication: z.boolean(),
+        connected_at: z.union([z.string(), z.null()]),
+    })
+    .passthrough();
+const JiraSettingsUpdateRequest = z
+    .object({ sync_from_date: z.union([z.string(), z.null()]) })
+    .passthrough();
+const JiraConnectionUpdateRequest = z
+    .object({ email: z.string(), api_token: z.string() })
+    .passthrough();
+const JiraSyncEntryStatus = z
+    .object({
+        state: z.string(),
+        issue_key: z.union([z.string(), z.null()]),
+        reason: z.union([z.string(), z.null()]),
+    })
+    .passthrough();
+const JiraSyncStatusResource = z.record(JiraSyncEntryStatus);
+const JiraSyncItemResource = z
+    .object({
+        action: z.string(),
+        issue_key: z.string(),
+        work_date: z.string(),
+        comment: z.union([z.string(), z.null()]),
+        group_hash: z.string(),
+        duration: z.number(),
+        previous_duration: z.union([z.number(), z.null()]),
+        started: z.union([z.string(), z.null()]),
+        time_entry_ids: z.array(z.string()),
+        // Only present once an item has been carried out
+        status: z.string().optional(),
+        error: z.union([z.string(), z.null()]).optional(),
+    })
+    .passthrough();
+const JiraSkippedEntryResource = z
+    .object({
+        time_entry_id: z.string(),
+        description: z.string(),
+        start: z.string(),
+        duration: z.number(),
+        reason: z.string(),
+    })
+    .passthrough();
+const JiraSyncPlanResource = z
+    .object({
+        start: z.string(),
+        end: z.string(),
+        items: z.array(JiraSyncItemResource),
+        skipped: z.array(JiraSkippedEntryResource),
+    })
+    .passthrough();
+const JiraSyncRunResource = z
+    .object({
+        id: z.string(),
+        status: z.string(),
+        start: z.string(),
+        end: z.string(),
+        total: z.number(),
+        done: z.number(),
+        results: z.array(JiraSyncItemResource),
+        error: z.union([z.string(), z.null()]),
+    })
+    .passthrough();
 const ImportRequest = z
     .object({ type: z.string(), data: z.string(), member_id: z.string().nullish() })
     .passthrough();
@@ -341,6 +412,8 @@ const OrganizationResource = z
         employees_can_manage_tasks: z.boolean(),
         prevent_overlapping_time_entries: z.boolean(),
         breaks_enabled: z.boolean(),
+        jira_site_url: z.union([z.string(), z.null()]),
+        jira_project_keys: z.union([z.string(), z.null()]),
         currency: z.string(),
         currency_symbol: z.string(),
         number_format: NumberFormat,
@@ -359,6 +432,8 @@ const OrganizationUpdateRequest = z
         employees_can_manage_tasks: z.boolean(),
         prevent_overlapping_time_entries: z.boolean(),
         breaks_enabled: z.boolean(),
+        jira_site_url: z.union([z.string(), z.null()]),
+        jira_project_keys: z.union([z.string(), z.null()]),
         number_format: NumberFormat,
         currency_format: CurrencyFormat,
         date_format: DateFormat,
@@ -765,6 +840,15 @@ export const schemas = {
     GoogleCalendarConnectionResource,
     GoogleCalendarEventResource,
     GoogleCalendarEventCollection,
+    JiraConnectionResource,
+    JiraConnectionUpdateRequest,
+    JiraSettingsUpdateRequest,
+    JiraSyncEntryStatus,
+    JiraSyncStatusResource,
+    JiraSyncItemResource,
+    JiraSkippedEntryResource,
+    JiraSyncPlanResource,
+    JiraSyncRunResource,
     ImportRequest,
     InvitationResource,
     InvitationStoreRequest,
@@ -4985,6 +5069,329 @@ Please note that the access token is only shown in this response and cannot be r
                     .object({ error: z.boolean(), key: z.string(), message: z.string() })
                     .passthrough(),
             },
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 404,
+                description: `Not found`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'get',
+        path: '/v1/organizations/:organization/jira/connection',
+        alias: 'getJiraConnection',
+        description: `The Jira site is set per organization by an administrator, while credentials are personal,
+so &#x60;is_configured&#x60; and &#x60;is_connected&#x60; are reported separately.`,
+        requestFormat: 'json',
+        parameters: [
+            {
+                name: 'organization',
+                type: 'Path',
+                schema: z.string().uuid(),
+            },
+        ],
+        response: z.object({ data: JiraConnectionResource }).passthrough(),
+        errors: [
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'put',
+        path: '/v1/organizations/:organization/jira/connection',
+        alias: 'updateJiraConnection',
+        description: `The credentials are checked against Jira before anything is stored, so an incorrect token
+is reported straight away rather than at the first sync.`,
+        requestFormat: 'json',
+        parameters: [
+            {
+                name: 'body',
+                type: 'Body',
+                schema: JiraConnectionUpdateRequest,
+            },
+            {
+                name: 'organization',
+                type: 'Path',
+                schema: z.string().uuid(),
+            },
+        ],
+        response: z.object({ data: JiraConnectionResource }).passthrough(),
+        errors: [
+            {
+                status: 400,
+                description: `API exception`,
+                schema: z
+                    .object({ error: z.boolean(), key: z.string(), message: z.string() })
+                    .passthrough(),
+            },
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 422,
+                description: `Validation error`,
+                schema: z
+                    .object({
+                        message: z.string(),
+                        errors: z.record(z.array(z.string())),
+                    })
+                    .passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'put',
+        path: '/v1/organizations/:organization/jira/settings',
+        alias: 'updateJiraSettings',
+        description: `Sets the date before which work is treated as already logged in Jira.`,
+        requestFormat: 'json',
+        parameters: [
+            {
+                name: 'body',
+                type: 'Body',
+                schema: JiraSettingsUpdateRequest,
+            },
+            {
+                name: 'organization',
+                type: 'Path',
+                schema: z.string().uuid(),
+            },
+        ],
+        response: z.object({ data: JiraConnectionResource }).passthrough(),
+        errors: [
+            {
+                status: 400,
+                description: `API exception`,
+                schema: z
+                    .object({ error: z.boolean(), key: z.string(), message: z.string() })
+                    .passthrough(),
+            },
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 422,
+                description: `Validation error`,
+                schema: z
+                    .object({
+                        message: z.string(),
+                        errors: z.record(z.array(z.string())),
+                    })
+                    .passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'delete',
+        path: '/v1/organizations/:organization/jira/connection',
+        alias: 'deleteJiraConnection',
+        description: `The stored credentials are deleted. Worklogs already in Jira are left alone.`,
+        requestFormat: 'json',
+        parameters: [
+            {
+                name: 'organization',
+                type: 'Path',
+                schema: z.string().uuid(),
+            },
+        ],
+        response: z.void(),
+        errors: [
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'get',
+        path: '/v1/organizations/:organization/jira/sync-status',
+        alias: 'getJiraSyncStatus',
+        description: `Returns a map of time entry ID to state, which drives the indicators on the calendar, the
+time list and the timesheet.`,
+        requestFormat: 'json',
+        parameters: [
+            {
+                name: 'organization',
+                type: 'Path',
+                schema: z.string().uuid(),
+            },
+            {
+                name: 'start',
+                type: 'Query',
+                schema: z.string(),
+            },
+            {
+                name: 'end',
+                type: 'Query',
+                schema: z.string(),
+            },
+        ],
+        response: z.object({ data: JiraSyncStatusResource }).passthrough(),
+        errors: [
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 422,
+                description: `Validation error`,
+                schema: z
+                    .object({
+                        message: z.string(),
+                        errors: z.record(z.array(z.string())),
+                    })
+                    .passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'get',
+        path: '/v1/organizations/:organization/jira/sync-preview',
+        alias: 'getJiraSyncPreview',
+        description: `Nothing is sent to Jira. Returns the worklogs that would be created, updated, deleted or
+left unchanged, plus the entries that will be skipped and why.`,
+        requestFormat: 'json',
+        parameters: [
+            {
+                name: 'organization',
+                type: 'Path',
+                schema: z.string().uuid(),
+            },
+            {
+                name: 'start',
+                type: 'Query',
+                schema: z.string(),
+            },
+            {
+                name: 'end',
+                type: 'Query',
+                schema: z.string(),
+            },
+        ],
+        response: z.object({ data: JiraSyncPlanResource }).passthrough(),
+        errors: [
+            {
+                status: 400,
+                description: `API exception`,
+                schema: z
+                    .object({ error: z.boolean(), key: z.string(), message: z.string() })
+                    .passthrough(),
+            },
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'post',
+        path: '/v1/organizations/:organization/jira/sync',
+        alias: 'syncJira',
+        description: `Queues the work and returns a run ID to poll.`,
+        requestFormat: 'json',
+        parameters: [
+            {
+                name: 'body',
+                type: 'Body',
+                schema: z.object({ start: z.string(), end: z.string() }).passthrough(),
+            },
+            {
+                name: 'organization',
+                type: 'Path',
+                schema: z.string().uuid(),
+            },
+        ],
+        response: z.object({ data: JiraSyncRunResource }).passthrough(),
+        errors: [
+            {
+                status: 400,
+                description: `API exception`,
+                schema: z
+                    .object({ error: z.boolean(), key: z.string(), message: z.string() })
+                    .passthrough(),
+            },
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'get',
+        path: '/v1/organizations/:organization/jira/sync-runs/:runId',
+        alias: 'getJiraSyncRun',
+        description: `Runs are per user and expire an hour after they are started.`,
+        requestFormat: 'json',
+        parameters: [
+            {
+                name: 'organization',
+                type: 'Path',
+                schema: z.string().uuid(),
+            },
+            {
+                name: 'runId',
+                type: 'Path',
+                schema: z.string(),
+            },
+        ],
+        response: z.object({ data: JiraSyncRunResource }).passthrough(),
+        errors: [
             {
                 status: 401,
                 description: `Unauthenticated`,

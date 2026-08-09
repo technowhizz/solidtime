@@ -79,8 +79,13 @@ const emit = defineEmits<{
             viewTitle
         }}</span>
 
-        <!-- Right: View switcher + Settings -->
+        <!-- Right: Page supplied actions + View switcher + Settings -->
         <div class="flex items-center gap-1">
+            <!--
+                Anything provider specific lives here rather than in this package, which stays
+                agnostic - the Jira sync button is passed in by Calendar.vue.
+            -->
+            <slot name="actions"></slot>
             <Tabs
                 :model-value="activeView"
                 @update:model-value="(v) => emit('change-view', String(v))">
@@ -91,7 +96,11 @@ const emit = defineEmits<{
             </Tabs>
             <CalendarSettingsPopover
                 :settings="settings"
-                @update:settings="(v) => emit('update:settings', v)" />
+                @update:settings="(v) => emit('update:settings', v)">
+                <template #extra-settings>
+                    <slot name="extra-settings"></slot>
+                </template>
+            </CalendarSettingsPopover>
         </div>
     </div>
 </template>

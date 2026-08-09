@@ -13,6 +13,10 @@ use App\Exceptions\Api\GoogleCalendarReauthenticationRequiredApiException;
 use App\Exceptions\Api\GoogleCalendarRequestFailedApiException;
 use App\Exceptions\Api\InactiveUserCanNotBeUsedApiException;
 use App\Exceptions\Api\InvitationForTheEmailAlreadyExistsApiException;
+use App\Exceptions\Api\JiraAuthenticationFailedApiException;
+use App\Exceptions\Api\JiraNotConfiguredApiException;
+use App\Exceptions\Api\JiraNotConnectedApiException;
+use App\Exceptions\Api\JiraRequestFailedApiException;
 use App\Exceptions\Api\OnlyOwnerCanChangeOwnership;
 use App\Exceptions\Api\OnlyPlaceholdersCanBeMergedIntoAnotherMember;
 use App\Exceptions\Api\OrganizationHasNoSubscriptionButMultipleMembersException;
@@ -57,6 +61,10 @@ return [
         GoogleCalendarNotConnectedApiException::KEY => 'No Google Calendar account is connected.',
         GoogleCalendarReauthenticationRequiredApiException::KEY => 'The connection to Google Calendar has expired, please connect your Google account again.',
         GoogleCalendarRequestFailedApiException::KEY => 'The request to Google Calendar failed, please try again later.',
+        JiraNotConfiguredApiException::KEY => 'No Jira site has been set up for this organization yet, please ask an administrator to add one.',
+        JiraNotConnectedApiException::KEY => 'No Jira account is connected.',
+        JiraAuthenticationFailedApiException::KEY => 'Jira rejected your credentials, please reconnect your Jira account.',
+        JiraRequestFailedApiException::KEY => 'The request to Jira failed, please try again later.',
     ],
     'unknown_error_in_admin_panel' => 'An unknown error occurred. Please check the logs.',
 ];

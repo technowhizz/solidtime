@@ -40,6 +40,11 @@ import {
 import { PlayIcon, TrashIcon } from '@heroicons/vue/20/solid';
 import BreakLabel from '@/packages/ui/src/TimeEntry/BreakLabel.vue';
 import BreakPlacementHintButton from '@/packages/ui/src/TimeEntry/BreakPlacementHintButton.vue';
+import ExternalSyncIndicator from '@/packages/ui/src/TimeEntry/ExternalSyncIndicator.vue';
+import {
+    worstExternalSyncBadge,
+    type ExternalSyncBadges,
+} from '@/packages/ui/src/TimeEntry/externalSyncTypes';
 import { useBreaksEnabled } from '@/packages/ui/src/utils/useBreaksEnabled';
 import { twMerge } from 'tailwind-merge';
 const props = defineProps<{
@@ -63,7 +68,17 @@ const props = defineProps<{
     canCreateProject: boolean;
     breakPlacementHints?: Record<string, BreakPlacementHint | null>;
     fixInCalendar?: (date: string) => void;
+    /** Sync state per time entry id, when the page tracks one. */
+    externalSyncBadges?: ExternalSyncBadges;
 }>();
+
+/** The group stands for several entries, so it shows the one that most needs attention. */
+const aggregateSyncBadge = computed(() =>
+    worstExternalSyncBadge(
+        props.timeEntry.timeEntries.map((entry: TimeEntry) => entry.id),
+        props.externalSyncBadges
+    )
+);
 const emit = defineEmits<{
     selected: [TimeEntry[]];
     unselected: [TimeEntry[]];
@@ -153,6 +168,9 @@ function onSelectChange(checked: boolean) {
                                     @click="expanded = !expanded">
                                     {{ timeEntry?.timeEntries?.length }}
                                 </GroupedItemsCountButton>
+                                <ExternalSyncIndicator
+                                    :badge="aggregateSyncBadge"
+                                    class="mr-2 shrink-0" />
                                 <TimeEntryDescriptionInput
                                     v-if="timeEntry.type !== 'break'"
                                     class="min-w-0 mr-4 shrink"
@@ -260,6 +278,9 @@ function onSelectChange(checked: boolean) {
                                         @click="expanded = !expanded">
                                         {{ timeEntry?.timeEntries?.length }}
                                     </GroupedItemsCountButton>
+                                    <ExternalSyncIndicator
+                                        :badge="aggregateSyncBadge"
+                                        class="mr-2 shrink-0" />
                                     <TimeEntryDescriptionInput
                                         class="min-w-0 flex-1"
                                         :model-value="timeEntry.description"
@@ -368,6 +389,7 @@ function onSelectChange(checked: boolean) {
                         :create-tag
                         :placement-hint="breakPlacementHints?.[subEntry.id] ?? null"
                         :fix-in-calendar="fixInCalendar"
+                        :sync-badge="externalSyncBadges?.[subEntry.id] ?? null"
                         :time-entry="subEntry"
                         @selected="emit('selected', [subEntry])"
                         @unselected="emit('unselected', [subEntry])"></TimeEntryRow>

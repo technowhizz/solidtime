@@ -124,7 +124,7 @@ An earlier version of this file listed four "always red locally" tests. That was
 treating them as expected noise hid a genuine product bug for several rounds. They are all fixed;
 the suite should be green. If something is red, investigate it rather than assuming it is known.
 
-Three failure modes cost real time before, so check for them first:
+Four failure modes cost real time before, so check for them first:
 
 **Local time of day.** Several calendar tests build fixtures relative to `now`, and the grid only
 renders the visible week. A running entry is created starting *10 minutes ago*, so just after
@@ -148,6 +148,15 @@ the passing tests: `await expect(field).toBeEditable()` before typing, and after
 reka-ui dropdown with Escape, wait for one of its items to reach `toHaveCount(0)` — the layer
 tears down asynchronously and owns focus until it has, so typing underneath it can be swallowed.
 
+**`scrollIntoViewIfNeeded` parks an element against the bottom edge**, because it stops the moment
+the element is visible. Any test that then clicks at a fixed offset *below* it — to hit an empty
+calendar slot next to an entry — clicks outside the viewport, hits nothing, and fails as an
+unexplained `getByRole('menu')` timeout. Two specs did exactly this. Use
+`scrollIntoViewCentred()` from `e2e/utils/scroll.ts`, which centres the element so there is room
+on both sides, and assert the click point is inside `page.viewportSize()` so a regression says so
+instead of timing out. Whether it bites depends on the calendar's scroll position, so it looks
+like flakiness — the same run can fail a different test each time.
+
 ## The calendar (`resources/js/packages/ui/src/FullCalendar/`)
 
 The biggest and most-edited subsystem. It is **hand-rolled** — despite the directory name there is no
@@ -165,6 +174,46 @@ The biggest and most-edited subsystem. It is **hand-rolled** — despite the dir
 - Day columns compose lanes via **one computed inline style** (`left` from the activity gutter,
   `right` from the external-calendar lane) — add new lanes there, not as more CSS classes.
 - `TimeEntryCalendar.vue` is the orchestrator and is where parallel work collides most often.
+- Provider-specific UI goes in a **named slot**, not in the package: `toolbar-actions` and
+  `calendar-settings` are forwarded down to `CalendarToolbar` and `CalendarSettingsPopover` so the
+  page can inject a Jira button and a Jira checkbox without the package knowing they exist.
+
+## Integrations (`app/Service/GoogleCalendar/`, `app/Service/Jira/`)
+
+Both follow the same shape: a `*Config` that decides whether the integration is switched on at all,
+a per-user connection model with credentials cast `'encrypted'` and **deliberately not auditable**
+(audit rows would copy the tokens), a card under `Profile/Partials/`, and a boolean in
+`HandleInertiaRequests::share()` that every user-facing entry point gates on.
+
+They differ in one way worth knowing: **Google is switched on per installation** (`GOOGLE_CLIENT_ID`
+in `config/services.php`), **Jira is switched on per organization** (`organizations.jira_site_url`,
+set by an admin). So `jira_enabled` depends on the current organization, and a `JiraConnection` is
+unique per `(user, organization)` — someone in two organizations with two Jira sites holds two.
+
+Jira specifics:
+
+- **`JiraClient` is built on the `Http` facade, not its own Guzzle client**, precisely so
+  `Http::preventStrayRequests()` covers it. Do not copy Socialite's approach here.
+- Worklogs are **reconciled, not journalled.** `JiraSyncService::plan()` recomputes the desired
+  worklogs from the entries and diffs them against the `jira_worklogs` rows, producing
+  create/update/delete/unchanged. There is deliberately **no pivot to `time_entries`**: group
+  membership is derived from a `group_hash` of issue key + local date + comment, so an edited
+  description simply moves an entry to a different group and time entry deletion needs no cascade.
+- Everything is keyed on the user's **local** day, not the UTC one, and worklog `started` carries
+  the user's real offset. Both are easy to get wrong and produce work logged on the wrong day.
+- `jira_connections.sync_from_date` is a cutoff: work before it is treated as already logged, which
+  is what stops imported Toggl/Clockify history being sent again. Worklogs from before it are also
+  excluded from reconciliation, so moving the cutoff forward cannot delete real ones.
+- **Anything derivable from a time entry is derived on the client, not fetched.** The "no ticket"
+  dot used to come from `/jira/sync-status`, so a newly created entry showed no dot until that
+  query happened to refetch — in practice, not until the page was reloaded. It is now computed by
+  `missingReferenceBadges()` from the entry list the page already renders, which makes it correct
+  the instant anything changes and costs no request at all. Only synced/pending/outdated still come
+  from the server, and `useTimeEntriesMutations` invalidates `['jira', 'syncStatus']` so those stay
+  fresh too. `e2e/jira.spec.ts` has two tests that never reload and will fail if this regresses.
+- The issue-key regex is duplicated in `utils/jira.ts` so the edit dialog can show the ticket as you
+  type. `jira.test.ts` mirrors `JiraIssueKeyParserTest` case for case — if one side changes, the
+  other fails.
 
 ## Contributing upstream
 

@@ -111,6 +111,12 @@ const hourOptions = Array.from({ length: 25 }, (_, i) => ({
             <div class="space-y-4">
                 <div class="text-sm font-semibold">Calendar Settings</div>
 
+                <!--
+                    Anything provider specific goes here rather than in this package, which
+                    stays agnostic - the Jira "missing ticket" toggle is passed in by Calendar.vue.
+                -->
+                <slot name="extra-settings"></slot>
+
                 <Field>
                     <FieldLabel for="calendar-snap">Snap Interval</FieldLabel>
                     <Select

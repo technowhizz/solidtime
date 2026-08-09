@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import ExternalSyncIndicator from '@/packages/ui/src/TimeEntry/ExternalSyncIndicator.vue';
+import {
+    worstExternalSyncBadge,
+    type ExternalSyncBadges,
+} from '@/packages/ui/src/TimeEntry/externalSyncTypes';
 import { computed } from 'vue';
 import { CheckIcon } from '@heroicons/vue/16/solid';
 import DurationSecondsInput from '@/packages/ui/src/Input/DurationSecondsInput.vue';
@@ -21,7 +26,21 @@ const props = defineProps<{
     readonly?: boolean;
     saveStatus?: CellSaveStatus;
     pendingSeconds?: number;
+    /** Sync state per time entry id, when the page tracks one. */
+    externalSyncBadges?: ExternalSyncBadges;
 }>();
+
+/*
+ * A cell stands for every entry of that row on that day, and the timesheet shows no
+ * descriptions at all, so the indicator surfaces the entry that most needs attention rather
+ * than one per entry.
+ */
+const syncBadge = computed(() =>
+    worstExternalSyncBadge(
+        (props.cell?.entries ?? []).map((entry) => entry.id),
+        props.externalSyncBadges
+    )
+);
 
 const emit = defineEmits<{
     update: [newSeconds: number];
@@ -60,8 +79,13 @@ const inputClass = computed(() => {
 <template>
     <div
         data-testid="timesheet_cell"
-        class="flex items-center justify-center border-t border-default-background-separator"
+        class="relative flex items-center justify-center border-t border-default-background-separator"
         :class="{ 'bg-default-background': isToday }">
+        <!-- Corner rather than inline: the cell is a single number and has no room beside it -->
+        <ExternalSyncIndicator
+            :badge="syncBadge"
+            small
+            class="absolute top-1.5 right-1.5 pointer-events-none" />
         <TooltipProvider v-if="isReadonly" :delay-duration="100">
             <Tooltip>
                 <TooltipTrigger as-child>

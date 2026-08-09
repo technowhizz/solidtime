@@ -123,6 +123,22 @@ export type GoogleCalendarEvent = ZodiosResponseByAlias<
     'getGoogleCalendarEvents'
 >['data'][0];
 
+export type JiraConnection = ZodiosResponseByAlias<SolidTimeApi, 'getJiraConnection'>['data'];
+
+export type UpdateJiraConnectionBody = ZodiosBodyByAlias<SolidTimeApi, 'updateJiraConnection'>;
+
+export type JiraSyncStatus = ZodiosResponseByAlias<SolidTimeApi, 'getJiraSyncStatus'>['data'];
+
+export type JiraSyncEntryStatus = JiraSyncStatus[string];
+
+export type JiraSyncPlan = ZodiosResponseByAlias<SolidTimeApi, 'getJiraSyncPreview'>['data'];
+
+export type JiraSyncItem = JiraSyncPlan['items'][0];
+
+export type JiraSkippedEntry = JiraSyncPlan['skipped'][0];
+
+export type JiraSyncRun = ZodiosResponseByAlias<SolidTimeApi, 'getJiraSyncRun'>['data'];
+
 export type DetailedInvoiceResponse = ZodiosResponseByAlias<SolidTimeApi, 'getInvoice'>;
 
 export type DetailedInvoice = DetailedInvoiceResponse['data'];

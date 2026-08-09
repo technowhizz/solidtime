@@ -19,6 +19,7 @@ import type {
 } from '@/packages/api/src';
 import type { TimesheetRow as TimesheetRowType, TimesheetRowKey } from '@/utils/useTimesheetGrid';
 import type { CellSaveStatus } from '@/utils/timesheet/useTimesheetCellMutations';
+import type { ExternalSyncBadges } from '@/packages/ui/src/TimeEntry/externalSyncTypes';
 
 const organization = inject<ComputedRef<Organization>>('organization');
 const dayjs = getDayJsInstance();
@@ -45,6 +46,8 @@ defineProps<{
     cellStatuses: Record<string, CellSaveStatus>;
     cellPendingSeconds: Record<string, number>;
     misplacedBreakDates?: Set<string>;
+    /** Sync state per time entry id, when the page tracks one. */
+    externalSyncBadges?: ExternalSyncBadges;
 }>();
 
 const emit = defineEmits<{
@@ -120,6 +123,7 @@ const emit = defineEmits<{
                 <TimesheetRow
                     v-for="row in rows"
                     :key="row.key"
+                    :external-sync-badges="externalSyncBadges"
                     :row="row"
                     :week-days="weekDays"
                     :today-date="todayDate"

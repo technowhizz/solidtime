@@ -48,6 +48,8 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property string|null $profile_photo_path
  * @property-read Organization|null $currentOrganization
  * @property-read GoogleCalendarConnection|null $googleCalendarConnection
+ * @property-read Collection<int, JiraConnection> $jiraConnections
+ * @property-read Collection<int, JiraWorklog> $jiraWorklogs
  * @property-read string $profile_photo_url
  * @property-read Collection<int, Token> $tokens
  * @property Carbon|null $created_at
@@ -235,6 +237,24 @@ class User extends Authenticatable implements AuditableContract, FilamentUser, M
     public function googleCalendarConnection(): HasOne
     {
         return $this->hasOne(GoogleCalendarConnection::class, 'user_id');
+    }
+
+    /**
+     * One per organization: credentials are paired with that organization's Jira site.
+     *
+     * @return HasMany<JiraConnection, $this>
+     */
+    public function jiraConnections(): HasMany
+    {
+        return $this->hasMany(JiraConnection::class, 'user_id');
+    }
+
+    /**
+     * @return HasMany<JiraWorklog, $this>
+     */
+    public function jiraWorklogs(): HasMany
+    {
+        return $this->hasMany(JiraWorklog::class, 'user_id');
     }
 
     /**

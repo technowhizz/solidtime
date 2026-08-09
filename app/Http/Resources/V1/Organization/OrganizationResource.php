@@ -59,6 +59,10 @@ class OrganizationResource extends BaseResource
             'prevent_overlapping_time_entries' => $this->resource->prevent_overlapping_time_entries,
             /** @var bool $breaks_enabled Whether members of the organization can track breaks */
             'breaks_enabled' => $this->resource->breaks_enabled,
+            /** @var string|null $jira_site_url Jira site that members log their work to, ex. https://your-org.atlassian.net. Null disables the Jira integration. */
+            'jira_site_url' => $this->resource->jira_site_url,
+            /** @var string|null $jira_project_keys Comma separated Jira project keys that issue detection is restricted to. Null detects any issue key. */
+            'jira_project_keys' => $this->resource->jira_project_keys,
             /** @var string $currency Currency code (ISO 4217) */
             'currency' => $this->resource->currency,
             /** @var string $currency_symbol Currency symbol */

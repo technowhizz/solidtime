@@ -11,10 +11,13 @@ import {
     type CreateProjectBody,
     type Project,
 } from '@/packages/api/src';
-import { TimeEntryCalendar } from '@/packages/ui/src';
+import { TimeEntryCalendar, Checkbox } from '@/packages/ui/src';
 import type { ActivityPeriod } from '@/packages/ui/src/FullCalendar/activityTypes';
 import type { ExternalCalendarEvent } from '@/packages/ui/src/FullCalendar/externalCalendarTypes';
 import { isGoogleCalendarEnabled } from '@/utils/googleCalendar';
+import { showMissingTicketHintsSetting } from '@/utils/jira';
+import { useJiraIndicators } from '@/utils/useJiraQuery';
+import JiraSyncButton from '@/Components/Jira/JiraSyncButton.vue';
 import {
     useGoogleCalendarConnectionQuery,
     useGoogleCalendarEventsQuery,
@@ -124,6 +127,16 @@ const externalCalendarEvents = computed<ExternalCalendarEvent[]>(() =>
     }))
 );
 
+// The Jira range is the visible one in local dates, since a worklog belongs to the day the
+// work happened rather than to a UTC instant
+const jiraStartDate = computed(() => calendarStart.value?.format('YYYY-MM-DD') ?? null);
+const jiraEndDate = computed(() => calendarEnd.value?.format('YYYY-MM-DD') ?? null);
+const {
+    isJiraEnabled: jiraEnabled,
+    isConnected: isJiraConnected,
+    externalSyncBadges,
+} = useJiraIndicators(jiraStartDate, jiraEndDate, () => currentTimeEntries.value);
+
 const { projects } = useProjectsQuery();
 const { tasks } = useTasksQuery();
 const { clients } = useClientsQuery();
@@ -169,7 +182,24 @@ function onRefresh() {
             :create-tag="createTag"
             :activity-periods="testActivityPeriods"
             :external-calendar-events="externalCalendarEvents"
+            :external-sync-badges="externalSyncBadges"
             @dates-change="onDatesChange"
-            @refresh="onRefresh" />
+            @refresh="onRefresh">
+            <template v-if="jiraEnabled" #toolbar-actions>
+                <JiraSyncButton
+                    :is-connected="isJiraConnected"
+                    :start-date="jiraStartDate"
+                    :end-date="jiraEndDate" />
+            </template>
+            <template v-if="jiraEnabled" #calendar-settings>
+                <label class="flex items-start gap-2 text-sm text-text-secondary">
+                    <Checkbox
+                        v-model:checked="showMissingTicketHintsSetting"
+                        class="mt-0.5"
+                        data-testid="calendar_jira_missing_ticket_toggle" />
+                    <span>Mark entries with no Jira ticket</span>
+                </label>
+            </template>
+        </TimeEntryCalendar>
     </AppLayout>
 </template>

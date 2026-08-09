@@ -81,6 +81,14 @@ class OrganizationController extends Controller
         if ($request->getBreaksEnabled() !== null) {
             $organization->breaks_enabled = $request->getBreaksEnabled();
         }
+        // Both are nullable, so presence rather than a non-null value decides - clearing the
+        // site URL is how an organization turns the Jira integration off again
+        if ($request->has('jira_site_url')) {
+            $organization->jira_site_url = $request->getJiraSiteUrl();
+        }
+        if ($request->has('jira_project_keys')) {
+            $organization->jira_project_keys = $request->getJiraProjectKeys();
+        }
         $hasBillableRate = $request->has('billable_rate');
         if ($hasBillableRate) {
             $oldBillableRate = $organization->billable_rate;

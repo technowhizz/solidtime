@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\ExportController;
 use App\Http\Controllers\Api\V1\GoogleCalendarController;
 use App\Http\Controllers\Api\V1\ImportController;
 use App\Http\Controllers\Api\V1\InvitationController;
+use App\Http\Controllers\Api\V1\JiraController;
 use App\Http\Controllers\Api\V1\MemberController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\ProjectController;
@@ -83,6 +84,19 @@ Route::prefix('v1')->name('v1.')->group(static function (): void {
             Route::get('/users/me/google-calendar', [GoogleCalendarController::class, 'show'])->name('show');
             Route::delete('/users/me/google-calendar', [GoogleCalendarController::class, 'destroy'])->name('destroy');
             Route::get('/users/me/google-calendar/events', [GoogleCalendarController::class, 'events'])->name('events');
+        });
+
+        // Jira routes. The site is per organization, the credentials and the synced time are
+        // per user, so these are organization scoped but only ever act on your own entries.
+        Route::name('jira.')->prefix('/organizations/{organization}')->group(static function (): void {
+            Route::get('/jira/connection', [JiraController::class, 'show'])->name('show');
+            Route::put('/jira/connection', [JiraController::class, 'update'])->name('update');
+            Route::put('/jira/settings', [JiraController::class, 'updateSettings'])->name('update-settings');
+            Route::delete('/jira/connection', [JiraController::class, 'destroy'])->name('destroy');
+            Route::get('/jira/sync-status', [JiraController::class, 'syncStatus'])->name('sync-status');
+            Route::get('/jira/sync-preview', [JiraController::class, 'syncPreview'])->name('sync-preview');
+            Route::post('/jira/sync', [JiraController::class, 'sync'])->name('sync')->middleware('check-organization-blocked');
+            Route::get('/jira/sync-runs/{runId}', [JiraController::class, 'syncRun'])->name('sync-run');
         });
 
         // User Member routes

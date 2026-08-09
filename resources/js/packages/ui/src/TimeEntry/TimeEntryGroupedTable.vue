@@ -19,6 +19,7 @@ import TimeEntryAggregateRow from '@/packages/ui/src/TimeEntry/TimeEntryAggregat
 import TimeEntryRowHeading from '@/packages/ui/src/TimeEntry/TimeEntryRowHeading.vue';
 import TimeEntryRow from '@/packages/ui/src/TimeEntry/TimeEntryRow.vue';
 import type { TimeEntriesGroupedByType } from '@/types/time-entries';
+import type { ExternalSyncBadges } from '@/packages/ui/src/TimeEntry/externalSyncTypes';
 
 const selectedTimeEntries = defineModel<TimeEntry[]>('selected', {
     default: [],
@@ -45,6 +46,8 @@ const props = withDefaults(
         groupSimilarTimeEntries?: boolean;
         // Host-provided navigation to the calendar for a break's day (YYYY-MM-DD)
         fixInCalendar?: (date: string) => void;
+        /** Sync state per time entry id, when the page tracks one. */
+        externalSyncBadges?: ExternalSyncBadges;
     }>(),
     {
         groupSimilarTimeEntries: true,
@@ -187,6 +190,7 @@ function unselectAllTimeEntries(value: TimeEntriesGroupedByType[]) {
                 @unselect-all="unselectAllTimeEntries(value)"></TimeEntryRowHeading>
             <template v-for="entry in value" :key="entry.id">
                 <TimeEntryAggregateRow
+                    :external-sync-badges="externalSyncBadges"
                     v-if="'timeEntries' in entry && entry.timeEntries.length > 1"
                     :create-project
                     :can-create-project
@@ -225,6 +229,7 @@ function unselectAllTimeEntries(value: TimeEntriesGroupedByType[]) {
                     "></TimeEntryAggregateRow>
                 <TimeEntryRow
                     v-else
+                    :sync-badge="externalSyncBadges?.[entry.id] ?? null"
                     :create-client
                     :enable-estimated-time
                     :can-create-project

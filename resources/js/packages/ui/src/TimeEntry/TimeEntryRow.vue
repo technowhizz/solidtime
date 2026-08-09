@@ -33,6 +33,8 @@ import {
 import { PlayIcon, PencilIcon, DocumentDuplicateIcon, TrashIcon } from '@heroicons/vue/20/solid';
 import BreakLabel from '@/packages/ui/src/TimeEntry/BreakLabel.vue';
 import BreakPlacementHintButton from '@/packages/ui/src/TimeEntry/BreakPlacementHintButton.vue';
+import ExternalSyncIndicator from '@/packages/ui/src/TimeEntry/ExternalSyncIndicator.vue';
+import type { ExternalSyncBadge } from '@/packages/ui/src/TimeEntry/externalSyncTypes';
 import type { BreakPlacementHint } from '@/packages/ui/src/utils/breakPlacement';
 import type { CreateTimeEntryBody } from '@/packages/api/src';
 
@@ -62,6 +64,8 @@ const props = defineProps<{
     canCreateProject: boolean;
     enableEstimatedTime: boolean;
     isReport?: boolean;
+    /** Sync state against an external issue tracker, if the page tracks one. */
+    syncBadge?: ExternalSyncBadge | null;
 }>();
 
 const emit = defineEmits<{ selected: []; unselected: [] }>();
@@ -153,6 +157,9 @@ async function handleDeleteTimeEntry() {
                         <div class="hidden @lg:flex items-center min-w-0">
                             <Checkbox :checked="selected" @update:checked="onSelectChange" />
                             <div v-if="indent === true" class="w-10 h-7"></div>
+                            <ExternalSyncIndicator
+                                :badge="syncBadge ?? null"
+                                class="mr-2 shrink-0" />
                             <TimeEntryDescriptionInput
                                 v-if="!isBreak"
                                 class="min-w-0 mr-4 shrink"
@@ -228,6 +235,9 @@ async function handleDeleteTimeEntry() {
                         <div class="@lg:hidden">
                             <!-- First row: description + duration -->
                             <div class="flex items-center justify-between min-w-0">
+                                <ExternalSyncIndicator
+                                    :badge="syncBadge ?? null"
+                                    class="mr-2 shrink-0" />
                                 <TimeEntryDescriptionInput
                                     v-if="!isBreak"
                                     class="min-w-0 flex-1"

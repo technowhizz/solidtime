@@ -23,7 +23,7 @@ import { PanelLeft } from '@lucide/vue';
 import NavigationSidebarItem from '@/Components/NavigationSidebarItem.vue';
 import UserSettingsIcon from '@/Components/UserSettingsIcon.vue';
 import MainContainer from '@/packages/ui/src/MainContainer.vue';
-import { nextTick, onMounted, provide, ref } from 'vue';
+import { computed, nextTick, onMounted, provide, ref } from 'vue';
 import NotificationContainer from '@/Components/NotificationContainer.vue';
 import { initializeStores } from '@/utils/init';
 import { useCurrentTimeEntryStore } from '@/utils/useCurrentTimeEntry';
@@ -46,6 +46,12 @@ import BillingBanner from '@/Components/Billing/BillingBanner.vue';
 import UserTimezoneMismatchModal from '@/Components/Common/User/UserTimezoneMismatchModal.vue';
 import { useTheme } from '@/utils/theme';
 import { useOrganizationQuery } from '@/utils/useOrganizationQuery';
+import { detectIssueKey, parseProjectKeys, showMissingTicketHintsSetting } from '@/utils/jira';
+import { useJiraConnectionQuery } from '@/utils/useJiraQuery';
+import {
+    EXTERNAL_REFERENCE_DETECTOR,
+    type ExternalReferenceDetector,
+} from '@/packages/ui/src/TimeEntry/externalSyncTypes';
 import { getCurrentOrganizationId } from '@/utils/useUser';
 import LoadingSpinner from '@/packages/ui/src/LoadingSpinner.vue';
 import { twMerge } from 'tailwind-merge';
@@ -87,6 +93,37 @@ const { organization, isLoading: isOrganizationLoading } = useOrganizationQuery(
 );
 
 provide('organization', organization);
+
+const jiraSiteUrl = computed(() => organization.value?.jira_site_url ?? null);
+const { data: jiraConnection } = useJiraConnectionQuery(computed(() => jiraSiteUrl.value !== null));
+
+/*
+ * Lets packages/ui show the Jira ticket a description refers to without knowing what Jira is.
+ * Injected rather than imported, the same way `organization` is.
+ *
+ * Null means show nothing at all, which is different from showing "No ticket". It is null unless
+ * the person has actually opted into caring about tickets - by connecting an account, or by
+ * turning on the missing-ticket dots. An organization can have a Jira site configured while a
+ * given member has done neither, and telling them their entry has no ticket would be noise.
+ */
+provide(
+    EXTERNAL_REFERENCE_DETECTOR,
+    computed<ExternalReferenceDetector | null>(() => {
+        if (jiraSiteUrl.value === null) {
+            return null;
+        }
+        const isConnected = jiraConnection.value?.is_connected === true;
+        if (!isConnected && showMissingTicketHintsSetting.value !== true) {
+            return null;
+        }
+
+        const allowedKeys = parseProjectKeys(organization.value?.jira_project_keys);
+        return (description) => {
+            const issueKey = detectIssueKey(description, allowedKeys);
+            return issueKey === null ? null : { label: issueKey };
+        };
+    })
+);
 
 onMounted(async () => {
     useTheme();

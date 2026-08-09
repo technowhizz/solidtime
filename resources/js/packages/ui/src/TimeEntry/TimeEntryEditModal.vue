@@ -2,7 +2,11 @@
 import TextInput from '@/packages/ui/src/Input/TextInput.vue';
 import SecondaryButton from '@/packages/ui/src/Buttons/SecondaryButton.vue';
 import DialogModal from '@/packages/ui/src/DialogModal.vue';
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, inject, nextTick, ref, watch, type ComputedRef } from 'vue';
+import {
+    EXTERNAL_REFERENCE_DETECTOR,
+    type ExternalReferenceDetector,
+} from '@/packages/ui/src/TimeEntry/externalSyncTypes';
 import PrimaryButton from '@/packages/ui/src/Buttons/PrimaryButton.vue';
 import TimeTrackerProjectTaskDropdown from '@/packages/ui/src/TimeTracker/TimeTrackerProjectTaskDropdown.vue';
 import { Field, FieldLabel } from '../field';
@@ -161,6 +165,21 @@ const typeProxy = computed({
         }
     },
 });
+/*
+ * The ticket the description points at, recomputed as it is typed. Null detector means the host
+ * tracks no external references (no Jira site configured), in which case nothing is shown -
+ * distinct from a detector that finds no ticket, which is worth saying out loud here.
+ */
+const externalReferenceDetector = inject<ComputedRef<ExternalReferenceDetector | null> | null>(
+    EXTERNAL_REFERENCE_DETECTOR,
+    null
+);
+const tracksExternalReferences = computed(() => externalReferenceDetector?.value != null);
+const externalReference = computed(() =>
+    externalReferenceDetector?.value
+        ? externalReferenceDetector.value(editableTimeEntry.value?.description)
+        : null
+);
 </script>
 
 <template>
@@ -183,6 +202,23 @@ const typeProxy = computed({
                             type="text"
                             class="mt-1 block w-full"
                             @keydown.enter="submit" />
+                    </div>
+                    <!-- Updates as the description is typed, so adding a key is confirmed at once -->
+                    <div v-if="tracksExternalReferences" class="shrink-0 sm:pb-1.5">
+                        <span
+                            v-if="externalReference"
+                            class="inline-flex items-center rounded-md border border-border bg-secondary px-2 py-1 font-mono text-xs font-medium text-text-primary"
+                            data-testid="time_entry_external_reference"
+                            title="This time will be logged against this ticket">
+                            {{ externalReference.label }}
+                        </span>
+                        <span
+                            v-else
+                            class="inline-flex items-center rounded-md border border-dashed border-border px-2 py-1 text-xs font-medium text-text-quaternary"
+                            data-testid="time_entry_external_reference_missing"
+                            title="Add a ticket key like PROJ-123 to the description to log this time against an issue">
+                            No ticket
+                        </span>
                     </div>
                 </div>
                 <div class="flex flex-col sm:flex-row sm:items-end gap-2">

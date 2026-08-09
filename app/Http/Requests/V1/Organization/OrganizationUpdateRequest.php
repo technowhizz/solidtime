@@ -12,6 +12,8 @@ use App\Enums\TimeFormat;
 use App\Http\Requests\V1\BaseFormRequest;
 use App\Models\Organization;
 use App\Rules\CurrencyRule;
+use App\Rules\JiraSiteUrlRule;
+use App\Service\Jira\JiraConfig;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rule;
 
@@ -53,6 +55,17 @@ class OrganizationUpdateRequest extends BaseFormRequest
             ],
             'breaks_enabled' => [
                 'boolean',
+            ],
+            'jira_site_url' => [
+                'nullable',
+                'string',
+                'max:255',
+                new JiraSiteUrlRule,
+            ],
+            'jira_project_keys' => [
+                'nullable',
+                'string',
+                'max:255',
             ],
             'number_format' => [
                 Rule::enum(NumberFormat::class),
@@ -132,5 +145,21 @@ class OrganizationUpdateRequest extends BaseFormRequest
     public function getBreaksEnabled(): ?bool
     {
         return $this->has('breaks_enabled') ? $this->boolean('breaks_enabled') : null;
+    }
+
+    /**
+     * Normalised to an origin, so "acme.atlassian.net" and
+     * "https://acme.atlassian.net/jira/your-work" both end up as the same stored value.
+     */
+    public function getJiraSiteUrl(): ?string
+    {
+        return JiraConfig::normaliseSiteUrl((string) $this->input('jira_site_url'));
+    }
+
+    public function getJiraProjectKeys(): ?string
+    {
+        $keys = JiraConfig::parseProjectKeys((string) $this->input('jira_project_keys'));
+
+        return $keys === [] ? null : implode(',', $keys);
     }
 }

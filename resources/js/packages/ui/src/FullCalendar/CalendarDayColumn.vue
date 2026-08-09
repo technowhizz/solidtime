@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '..';
 import type { DayEvent, ActivityBox } from './calendarTypes';
 import type { WindowActivityInPeriod } from './activityTypes';
 import type { ExternalCalendarEvent, ExternalEventBox } from './externalCalendarTypes';
+import type { ExternalSyncBadges } from '../TimeEntry/externalSyncTypes';
 
 /** Share of the column width the external calendar lane occupies on the right. */
 const EXTERNAL_LANE_WIDTH = '25%';
@@ -53,6 +54,9 @@ const props = defineProps<{
 
     // External calendar events (read-only overlay lane)
     externalEventBoxes: ExternalEventBox[];
+
+    /** Sync state per time entry id, when the page tracks one. */
+    externalSyncBadges?: ExternalSyncBadges;
 
     // Selection
     showSelection: boolean;
@@ -167,6 +171,7 @@ const emit = defineEmits<{
                                     :client-name="dayEvent.event.client?.name"
                                     :is-break="dayEvent.event.isBreak"
                                     :is-misplaced-break="dayEvent.event.isMisplacedBreak"
+                                    :sync-badge="externalSyncBadges?.[dayEvent.event.id] ?? null"
                                     :duration-seconds="getEventDurationSeconds(dayEvent, dayStr)" />
                             </div>
                             <div
