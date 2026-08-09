@@ -11,19 +11,12 @@ use App\Http\Requests\V1\GoogleCalendar\GoogleCalendarEventIndexRequest;
 use App\Http\Resources\V1\GoogleCalendar\GoogleCalendarConnectionResource;
 use App\Http\Resources\V1\GoogleCalendar\GoogleCalendarEventCollection;
 use App\Http\Resources\V1\GoogleCalendar\GoogleCalendarEventResource;
-use App\Service\GoogleCalendar\GoogleCalendarEventDto;
 use App\Service\GoogleCalendar\GoogleCalendarService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Cache;
 
 class GoogleCalendarController extends Controller
 {
-    /**
-     * How long an events response is reused before Google is asked again.
-     */
-    private const int EVENTS_CACHE_SECONDS = 60;
-
     /**
      * Get the Google Calendar connection of the currently authenticated user
      *
@@ -88,14 +81,10 @@ class GoogleCalendarController extends Controller
             throw new GoogleCalendarNotConnectedApiException;
         }
 
-        $start = $request->getStart();
-        $end = $request->getEnd();
-
-        /** @var list<GoogleCalendarEventDto> $events */
-        $events = Cache::remember(
-            'google-calendar:'.$connection->id.':'.$start->toIso8601ZuluString().':'.$end->toIso8601ZuluString(),
-            self::EVENTS_CACHE_SECONDS,
-            fn (): array => app(GoogleCalendarService::class)->eventsForRange($connection, $start, $end)
+        $events = app(GoogleCalendarService::class)->cachedEventsForRange(
+            $connection,
+            $request->getStart(),
+            $request->getEnd()
         );
 
         return new GoogleCalendarEventCollection($events);

@@ -12,6 +12,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -36,7 +37,128 @@ class GoogleCalendarService
 
     private const int CONNECT_TIMEOUT_SECONDS = 5;
 
+    /**
+     * How long a day of events is reused before Google is asked again. Short because the
+     * per-day cache below means a refresh costs only the days actually missing, not the
+     * whole three week window the calendar requests.
+     */
+    private const int DAY_CACHE_SECONDS = 15;
+
     public function __construct(private GoogleCalendarConfig $config) {}
+
+    /**
+     * Events overlapping the range, served from a cache keyed by whole UTC days.
+     *
+     * The calendar asks for the visible week plus one either side, so paging a week shifts
+     * the requested range while two thirds of its days are unchanged. Caching against the
+     * range itself misses entirely on that shift and refetches all 21 days; caching per day
+     * turns it into one upstream call for the seven genuinely new ones.
+     *
+     * @return list<GoogleCalendarEventDto>
+     *
+     * @throws GoogleCalendarReauthenticationRequiredApiException
+     * @throws GoogleCalendarRequestFailedApiException
+     */
+    public function cachedEventsForRange(GoogleCalendarConnection $connection, CarbonInterface $start, CarbonInterface $end): array
+    {
+        $days = $this->daysCovering($start, $end);
+        if ($days === []) {
+            return [];
+        }
+
+        /** @var array<string, list<GoogleCalendarEventDto>> $byDay */
+        $byDay = [];
+        $missing = [];
+
+        foreach ($days as $day) {
+            $hit = Cache::get($this->dayCacheKey($connection, $day));
+            if (is_array($hit)) {
+                /** @var list<GoogleCalendarEventDto> $hit */
+                $byDay[$day] = $hit;
+            } else {
+                $missing[] = $day;
+            }
+        }
+
+        if ($missing !== []) {
+            // One upstream call spanning the missing days. In practice they are contiguous —
+            // a week of navigation adds a run at one end — so this stays a single request.
+            $fetched = $this->eventsForRange(
+                $connection,
+                CarbonImmutable::parse($missing[0], 'UTC'),
+                CarbonImmutable::parse($missing[count($missing) - 1], 'UTC')->addDay()
+            );
+
+            foreach ($missing as $day) {
+                $dayStart = CarbonImmutable::parse($day, 'UTC');
+                $forDay = $this->eventsOverlapping($fetched, $dayStart, $dayStart->addDay());
+                Cache::put($this->dayCacheKey($connection, $day), $forDay, self::DAY_CACHE_SECONDS);
+                $byDay[$day] = $forDay;
+            }
+        }
+
+        // An event that spans midnight sits in more than one day, so the union is deduplicated
+        $unique = [];
+        foreach ($byDay as $forDay) {
+            foreach ($forDay as $event) {
+                $unique[$event->id] = $event;
+            }
+        }
+
+        $events = $this->eventsOverlapping(array_values($unique), $start, $end);
+        usort($events, fn (GoogleCalendarEventDto $a, GoogleCalendarEventDto $b): int => $a->start <=> $b->start);
+
+        return $events;
+    }
+
+    /**
+     * Forget every cached day for a connection, so the next read goes back to Google.
+     */
+    public function forgetCachedEvents(GoogleCalendarConnection $connection, CarbonInterface $start, CarbonInterface $end): void
+    {
+        foreach ($this->daysCovering($start, $end) as $day) {
+            Cache::forget($this->dayCacheKey($connection, $day));
+        }
+    }
+
+    private function dayCacheKey(GoogleCalendarConnection $connection, string $day): string
+    {
+        return 'google-calendar:'.$connection->id.':day:'.$day;
+    }
+
+    /**
+     * The whole UTC days the range touches. Day granularity is what makes the keys repeat
+     * across navigation, since paging moves the range by whole days.
+     *
+     * @return list<string>
+     */
+    private function daysCovering(CarbonInterface $start, CarbonInterface $end): array
+    {
+        $day = $start->toImmutable()->utc()->startOfDay();
+        $last = $end->toImmutable()->utc();
+
+        $days = [];
+        while ($day->isBefore($last)) {
+            $days[] = $day->format('Y-m-d');
+            $day = $day->addDay();
+        }
+
+        return $days;
+    }
+
+    /**
+     * @param  list<GoogleCalendarEventDto>  $events
+     * @return list<GoogleCalendarEventDto>
+     */
+    private function eventsOverlapping(array $events, CarbonInterface $start, CarbonInterface $end): array
+    {
+        return array_values(array_filter($events, function (GoogleCalendarEventDto $event) use ($start, $end): bool {
+            // A zero length event still belongs to the day it starts on
+            $effectiveEnd = $event->end->greaterThan($event->start) ? $event->end : $event->start->addSecond();
+
+            return $event->start->isBefore($end) && $effectiveEnd->isAfter($start);
+        }));
+    }
 
     /**
      * Load the events of the user's primary calendar that overlap the given range.

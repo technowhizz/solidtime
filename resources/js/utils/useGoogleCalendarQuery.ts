@@ -51,6 +51,11 @@ export function useGoogleCalendarEventsQuery(
             )
         ),
         enabled,
+        // Deliberately no staleTime: revalidating on mount and focus costs a request to our
+        // own server, which the per-day cache answers without touching Google. Holding the
+        // browser copy back would only add its window to the server's, doubling how long a
+        // change in Google can take to show up. placeholderData keeps the current events
+        // rendered while a revalidation is in flight, so this does not flicker.
         placeholderData: (previousData) => previousData,
         queryFn: async () => {
             const response = await api.getGoogleCalendarEvents({
@@ -61,7 +66,6 @@ export function useGoogleCalendarEventsQuery(
             });
             return response.data;
         },
-        staleTime: 1000 * 60, // 60 seconds, matching the server side cache
     });
 }
 

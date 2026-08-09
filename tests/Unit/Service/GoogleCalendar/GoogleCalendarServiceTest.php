@@ -420,6 +420,93 @@ class GoogleCalendarServiceTest extends TestCaseWithDatabase
         $this->service()->ensureFreshAccessToken($connection);
     }
 
+    public function test_cached_events_for_range_only_fetches_the_days_it_does_not_already_have(): void
+    {
+        // Arrange
+        $connection = GoogleCalendarConnection::factory()->create();
+        Http::fake([
+            self::EVENTS_URL => Http::response(['items' => []], 200),
+        ]);
+
+        // Act: a week, then the same week shifted forward by one day
+        $this->service()->cachedEventsForRange(
+            $connection,
+            CarbonImmutable::parse('2026-08-03T00:00:00Z'),
+            CarbonImmutable::parse('2026-08-10T00:00:00Z')
+        );
+        $this->service()->cachedEventsForRange(
+            $connection,
+            CarbonImmutable::parse('2026-08-04T00:00:00Z'),
+            CarbonImmutable::parse('2026-08-11T00:00:00Z')
+        );
+
+        // Assert: the second call only needed the one new day, not the whole week again
+        Http::assertSentCount(2);
+        Http::assertSent(function (Request $request): bool {
+            return $request['timeMin'] === '2026-08-10T00:00:00Z'
+                && $request['timeMax'] === '2026-08-11T00:00:00Z';
+        });
+    }
+
+    public function test_cached_events_for_range_serves_a_fully_cached_range_without_calling_google(): void
+    {
+        // Arrange
+        $connection = GoogleCalendarConnection::factory()->create();
+        Http::fake([
+            self::EVENTS_URL => Http::response([
+                'items' => [
+                    [
+                        'id' => 'event-1',
+                        'summary' => 'Sprint planning',
+                        'start' => ['dateTime' => '2026-08-04T10:00:00Z'],
+                        'end' => ['dateTime' => '2026-08-04T11:00:00Z'],
+                    ],
+                ],
+            ], 200),
+        ]);
+        $start = CarbonImmutable::parse('2026-08-03T00:00:00Z');
+        $end = CarbonImmutable::parse('2026-08-10T00:00:00Z');
+
+        // Act
+        $first = $this->service()->cachedEventsForRange($connection, $start, $end);
+        $second = $this->service()->cachedEventsForRange($connection, $start, $end);
+
+        // Assert
+        Http::assertSentCount(1);
+        $this->assertCount(1, $first);
+        $this->assertCount(1, $second);
+        $this->assertSame('event-1', $second[0]->id);
+    }
+
+    public function test_cached_events_for_range_returns_an_event_spanning_midnight_once(): void
+    {
+        // Arrange
+        $connection = GoogleCalendarConnection::factory()->create();
+        Http::fake([
+            self::EVENTS_URL => Http::response([
+                'items' => [
+                    [
+                        'id' => 'overnight',
+                        'summary' => 'Overnight run',
+                        'start' => ['dateTime' => '2026-08-04T22:00:00Z'],
+                        'end' => ['dateTime' => '2026-08-05T02:00:00Z'],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        // Act
+        $events = $this->service()->cachedEventsForRange(
+            $connection,
+            CarbonImmutable::parse('2026-08-03T00:00:00Z'),
+            CarbonImmutable::parse('2026-08-10T00:00:00Z')
+        );
+
+        // Assert: it sits in both day buckets but is deduplicated on the way out
+        $this->assertCount(1, $events);
+        $this->assertSame('overnight', $events[0]->id);
+    }
+
     public function test_revoke_sends_the_refresh_token_to_the_revocation_endpoint(): void
     {
         // Arrange
