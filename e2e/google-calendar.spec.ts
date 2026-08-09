@@ -26,21 +26,31 @@ function todayAt(hour: number, minute: number = 0): string {
 }
 
 /**
- * The day after today. Used to land a time entry on a day that has no external event,
- * which is where the lane has to be reserved anyway.
+ * A day other than today that is still inside the visible week — used to land a time entry
+ * on a day with no external event of its own, which is where the lane has to be reserved
+ * anyway. Deliberately not "tomorrow": that falls into the next week whenever the suite
+ * runs on the last day of the current one, and the entry would then be off screen.
  */
-function tomorrow(): Date {
+function otherDayInWeek(): Date {
     const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // The calendar starts its week on Monday, which is always among the visible days
+    const offsetToMonday = (today.getDay() + 6) % 7;
+    const day = new Date(today);
+    day.setDate(today.getDate() - offsetToMonday);
+    if (day.getTime() === today.getTime()) {
+        day.setDate(day.getDate() + 1);
+    }
+    return day;
 }
 
-function tomorrowStr(): string {
-    const d = tomorrow();
+function otherDayStr(): string {
+    const d = otherDayInWeek();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function tomorrowAt(hour: number, minute: number = 0): string {
-    const d = tomorrow();
+function otherDayAt(hour: number, minute: number = 0): string {
+    const d = otherDayInWeek();
     d.setHours(hour, minute, 0, 0);
     return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
@@ -158,8 +168,8 @@ test.describe('Google Calendar events on the calendar', () => {
         // The entry is on a day with no external event of its own
         await createTimeEntryWithTimestampsViaApi(ctx, {
             description: 'Other day work',
-            start: tomorrowAt(10),
-            end: tomorrowAt(11),
+            start: otherDayAt(10),
+            end: otherDayAt(11),
         });
         await stubGoogleCalendar(page, { events: [googleEvent()] });
         await goToCalendar(page);
@@ -169,7 +179,7 @@ test.describe('Google Calendar events on the calendar', () => {
         await expect(timeEntry).toBeVisible({ timeout: 10000 });
 
         const columnBox = (await page
-            .locator(`.fc-timegrid-col[data-date="${tomorrowStr()}"]`)
+            .locator(`.fc-timegrid-col[data-date="${otherDayStr()}"]`)
             .boundingBox())!;
         const entryBox = (await timeEntry.boundingBox())!;
 
