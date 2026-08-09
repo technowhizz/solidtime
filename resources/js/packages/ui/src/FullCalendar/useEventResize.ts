@@ -143,6 +143,12 @@ export function useEventResize(params: {
         edge: 'start' | 'end',
         dayStr: string
     ) {
+        // Left button only, as the drag composable already does. The resize handles are
+        // 12px strips at the top and bottom of an event, so on an entry shorter than about
+        // 25px they cover its middle — a right click aimed at the context menu would land
+        // on one, start a resize, and commit a grid-snapped start on release.
+        if (e.button !== 0) return;
+
         e.preventDefault();
         e.stopPropagation();
 
